@@ -143,6 +143,11 @@ namespace MiyouDaily
     {
         public bool Primary;
         bool hover,pressed;
+        readonly Bitmap[] shapes=new Bitmap[5];
+        Size shapeSize;float shapeScale;bool shapePrimary;
+        internal int ShapeRasterizations{get;private set;}
+        void ClearShapes(){for(int i=0;i<shapes.Length;i++)if(shapes[i]!=null){shapes[i].Dispose();shapes[i]=null;}}
+        protected override void Dispose(bool disposing){if(disposing)ClearShapes();base.Dispose(disposing);}
         public RoundButton(){FlatStyle=FlatStyle.Flat;FlatAppearance.BorderSize=0;SetStyle(ControlStyles.UserPaint|ControlStyles.OptimizedDoubleBuffer|ControlStyles.AllPaintingInWmPaint|ControlStyles.ResizeRedraw|ControlStyles.Opaque,true);BackColor=Theme.Surface;Cursor=Cursors.Hand;Font=AppFonts.Create(10,FontStyle.Bold);}
         protected override void OnPaintBackground(PaintEventArgs e)
         {
@@ -163,19 +168,8 @@ namespace MiyouDaily
             var fill=!Enabled?Color.FromArgb(13,28,48):Primary?(hover?Color.FromArgb(35,115,202):Color.FromArgb(24,81,156)):(hover?Color.FromArgb(24,61,104):Color.FromArgb(13,37,69));
             if(Width<8||Height<8)return;
             float top=pressed&&Enabled?3*z:1.5f*z;
-            // Supersample geometry only; text is drawn at native resolution below.
-            using(var layer=new Bitmap(Width*3,Height*3,System.Drawing.Imaging.PixelFormat.Format32bppPArgb))
-            {
-                using(var hi=Graphics.FromImage(layer))
-                {
-                    hi.ScaleTransform(3,3);hi.SmoothingMode=SmoothingMode.AntiAlias;hi.PixelOffsetMode=PixelOffsetMode.HighQuality;
-                    float radius=Math.Min(12*z,(Height-6*z)/2);
-                    Theme.FillRound(hi,new RectangleF(1.5f*z,3.5f*z,Width-3*z,Height-5*z),radius,Color.FromArgb(170,0,0,0),Color.Transparent);
-                    Theme.FillRound(hi,new RectangleF(1.5f*z,top,Width-3*z,Height-6*z),radius,fill,Primary?Theme.Cyan:Theme.Edge);
-                }
-                var state=g.Save();g.InterpolationMode=InterpolationMode.HighQualityBicubic;g.PixelOffsetMode=PixelOffsetMode.HighQuality;
-                g.DrawImage(layer,new Rectangle(0,0,Width,Height),0,0,layer.Width,layer.Height,GraphicsUnit.Pixel);g.Restore(state);
-            }
+            var shape=ButtonShape(z,top,fill);
+            g.DrawImage(shape,new Rectangle(0,0,Width,Height),0,0,Width,Height,GraphicsUnit.Pixel);
             var textRect=new Rectangle(0,(int)top,Width,Height-(int)(5*z));
             if(Image!=null)
             {
@@ -185,6 +179,37 @@ namespace MiyouDaily
             }
             UiRendering.Text(g,Text,Font,textRect,Enabled?Theme.Text:Theme.Muted,Image==null);
             if(Focused&&ShowFocusCues)using(var p=new Pen(Theme.Cyan)){using(var path=Theme.Round(new RectangleF(5*z,top+3*z,Width-10*z,Height-12*z),8*z))g.DrawPath(p,path);}
+        }
+        Bitmap ButtonShape(float z,float top,Color fill)
+        {
+            if(shapeSize!=Size||shapeScale!=z||shapePrimary!=Primary)
+            {ClearShapes();shapeSize=Size;shapeScale=z;shapePrimary=Primary;}
+            int state=!Enabled?4:(hover?1:0)+(pressed?2:0);
+            if(shapes[state]!=null)return shapes[state];
+            // Retain only native-size geometry for each interaction state.
+            // Text, icons, focus and parent artwork are painted live, while the
+            // expensive 3x rasterization runs once per size/DPI/state.
+            var result=new Bitmap(Width,Height,System.Drawing.Imaging.PixelFormat.Format32bppPArgb);
+            try
+            {
+                using(var layer=new Bitmap(Width*3,Height*3,System.Drawing.Imaging.PixelFormat.Format32bppPArgb))
+                {
+                    using(var hi=Graphics.FromImage(layer))
+                    {
+                        hi.ScaleTransform(3,3);hi.SmoothingMode=SmoothingMode.AntiAlias;hi.PixelOffsetMode=PixelOffsetMode.HighQuality;
+                        float radius=Math.Min(12*z,(Height-6*z)/2);
+                        Theme.FillRound(hi,new RectangleF(1.5f*z,3.5f*z,Width-3*z,Height-5*z),radius,Color.FromArgb(170,0,0,0),Color.Transparent);
+                        Theme.FillRound(hi,new RectangleF(1.5f*z,top,Width-3*z,Height-6*z),radius,fill,Primary?Theme.Cyan:Theme.Edge);
+                    }
+                    using(var down=Graphics.FromImage(result))
+                    {
+                        down.CompositingMode=CompositingMode.SourceCopy;down.InterpolationMode=InterpolationMode.HighQualityBicubic;down.PixelOffsetMode=PixelOffsetMode.HighQuality;
+                        down.DrawImage(layer,new Rectangle(0,0,Width,Height),0,0,layer.Width,layer.Height,GraphicsUnit.Pixel);
+                    }
+                }
+                ShapeRasterizations++;shapes[state]=result;return result;
+            }
+            catch{result.Dispose();throw;}
         }
     }
     public sealed class ToggleButton : CheckBox

@@ -31,7 +31,7 @@ namespace MiyouDaily
             fields.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute,75));fields.ColumnStyles.Add(new ColumnStyle(SizeType.Percent,100));fields.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute,146));
             fields.RowStyles.Add(new RowStyle(SizeType.Absolute,47));fields.RowStyles.Add(new RowStyle(SizeType.Absolute,47));fields.RowStyles.Add(new RowStyle(SizeType.Percent,100));
             fields.Controls.Add(Label("手机号"),0,0);fields.Controls.Add(Label("验证码"),0,1);
-            foreach(var field in new[]{phone,code}){field.BackColor=Theme.Tile;field.ForeColor=Theme.Text;field.BorderStyle=BorderStyle.FixedSingle;field.Dock=DockStyle.Top;field.Margin=new Padding(3,8,14,0);}
+            foreach(var field in new[]{phone,code}){field.BackColor=Theme.Tile;field.ForeColor=Theme.Text;field.BorderStyle=BorderStyle.FixedSingle;field.Dock=DockStyle.Top;field.Margin=new Padding(3,8,14,0);field.ImeMode=ImeMode.Disable;}
             phone.MaxLength=18;phone.AccessibleName="小黑盒手机号";code.MaxLength=8;code.UseSystemPasswordChar=true;code.AccessibleName="小黑盒短信验证码";
             fields.Controls.Add(phone,1,0);fields.Controls.Add(code,1,1);
             Configure(send,"获取验证码",false);Configure(verify,"登录",true);fields.Controls.Add(send,2,0);fields.Controls.Add(verify,2,1);
@@ -42,7 +42,7 @@ namespace MiyouDaily
             var logs=new RoundedPanel{Dock=DockStyle.Fill,Padding=new Padding(12),Margin=new Padding(0,4,0,0)};log.Dock=DockStyle.Fill;log.ReadOnly=true;log.BorderStyle=BorderStyle.None;log.BackColor=Theme.Surface;log.ForeColor=Theme.Muted;log.Font=AppFonts.Create(9.5f);log.DetectUrls=false;logs.Controls.Add(log);root.Controls.Add(logs,0,3);ScrollbarTheme.Attach(log);
             send.Click+=async(s,e)=>await Work(SendCode);verify.Click+=async(s,e)=>await Work(Login);import.Click+=async(s,e)=>await Work(Import);
             logout.Click+=(s,e)=>{string previous=settings.ProtectedHeyboxConfig;bool wasEnabled=settings.HeyboxEnabled;try{settings.ProtectedHeyboxConfig="";settings.HeyboxEnabled=false;Persist();RefreshAccount();Append("小黑盒本机登录已清除，自动签到已关闭。");if(speak!=null)speak("主人，小黑盒通道已断开，每日委托也已暂停。需要时再叫我接入。");}catch(Exception ex){settings.ProtectedHeyboxConfig=previous;settings.HeyboxEnabled=wasEnabled;RefreshAccount();Report(ex);}};
-            cooldown.Interval=500;cooldown.Tick+=(s,e)=>RefreshButtons();cooldown.Start();
+            cooldown.Interval=500;cooldown.Tick+=(s,e)=>RefreshButtons();
             FormClosing+=(s,e)=>{closing=true;lifetime.Cancel();};FormClosed+=(s,e)=>{if(!completed&&dismiss!=null)dismiss();};RefreshAccount();
             Append("支持短信验证码登录，也可导入已有账号配置。接入后返回小黑盒签到页面，即可下达每日委托。");
             WindowLayout.Watch(this,()=>new Size(600,440),true);
@@ -72,6 +72,7 @@ namespace MiyouDaily
             if(closing)return;int remaining=Math.Max(0,(int)Math.Ceiling((nextSms-DateTime.UtcNow).TotalSeconds));
             send.Text=remaining==0?"获取验证码":remaining+" 秒后重试";send.Enabled=!busy&&remaining==0;
             verify.Enabled=!busy&&pending!=null&&pendingPhone!=null&&attempts<3;import.Enabled=logout.Enabled=phone.Enabled=code.Enabled=!busy;
+            cooldown.Enabled=remaining>0;
         }
         async Task Work(Func<Task> action)
         {

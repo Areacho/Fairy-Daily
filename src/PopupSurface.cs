@@ -128,6 +128,7 @@ namespace MiyouDaily
             if(disposed||rendering||!host.Visible||host.Opacity==0||host.WindowState==FormWindowState.Minimized)return;
             if(interactiveMove&&!GeometryChanged()){deferredFrame=true;return;}
             using(var dpi=new WindowDpiScope(host))
+            using(var input=new EditorFocusScope(host))
             using(var frame=ComposeFrame())
             {
                 // Replace pixels, size and position atomically, including pixels
@@ -155,6 +156,7 @@ namespace MiyouDaily
         internal Bitmap ComposeFrame()
         {
             using(var dpi=new WindowDpiScope(host))
+            using(var input=new EditorFocusScope(host))
             {
                 CompositionCount++;
                 rendering=true;int previousDpi=RenderingDpi;RenderingDpi=host.DeviceDpi;
@@ -195,6 +197,7 @@ namespace MiyouDaily
                             g.ExcludeClip(host.Region);using(var clear=new SolidBrush(Color.Transparent))g.FillRectangle(clear,bounds);
                         }
                         PaintChrome(result,client,visible);
+                        input.Restore();
                         PaintCaret(result);
                         if(visible==bounds)return result;
                         try{return result.Clone(visible,PixelFormat.Format32bppPArgb);}finally{result.Dispose();}
@@ -295,6 +298,13 @@ namespace MiyouDaily
         sealed class FrameWindow : PassiveForm
         {
             public FrameWindow(){FormBorderStyle=FormBorderStyle.None;ShowInTaskbar=false;StartPosition=FormStartPosition.Manual;AutoScaleMode=AutoScaleMode.None;}
+            protected override void WndProc(ref Message message)
+            {
+                // Make activation and hit testing fall through as well as the
+                // layered window's mouse events. This window only shows pixels.
+                if(message.Msg==0x84){message.Result=new IntPtr(-1);return;}
+                base.WndProc(ref message);
+            }
             protected override void OnDpiChanged(DpiChangedEventArgs e)
             {
                 // The host already supplied a frame in physical monitor pixels.
@@ -329,6 +339,25 @@ namespace MiyouDaily
             {previous=window.IsHandleCreated?SetThreadDpiAwarenessContext(GetWindowDpiAwarenessContext(window.Handle)):IntPtr.Zero;}
             public void Dispose(){if(previous!=IntPtr.Zero)SetThreadDpiAwarenessContext(previous);}
         }
+        sealed class EditorFocusScope : IDisposable
+        {
+            readonly Form host;readonly TextBoxBase editor;readonly IntPtr foreground;
+            internal EditorFocusScope(Form host)
+            {
+                this.host=host;foreground=GetForegroundWindow();
+                if(host.IsHandleCreated&&GetActiveWindow()==host.Handle)editor=FocusedEditor(host);
+            }
+            internal void Restore()
+            {
+                // Native WM_PRINT/IME processing must not replace the editor's
+                // focus with a sibling. Restore only within the same active
+                // window, never after the user switches to another application.
+                if(editor==null||editor.IsDisposed||!editor.Enabled||!editor.Visible||editor.Focused||
+                    GetForegroundWindow()!=foreground||GetActiveWindow()!=host.Handle)return;
+                editor.Select();
+            }
+            public void Dispose(){Restore();}
+        }
         [StructLayout(LayoutKind.Sequential)]struct NativePoint{public int X,Y;}
         [StructLayout(LayoutKind.Sequential)]struct NativeRect{public int Left,Top,Right,Bottom;}
         [StructLayout(LayoutKind.Sequential)]struct NativeSize{public int Width,Height;}
@@ -348,5 +377,7 @@ namespace MiyouDaily
         [DllImport("user32.dll")]static extern bool PhysicalToLogicalPointForPerMonitorDPI(IntPtr window,ref NativePoint point);
         [DllImport("user32.dll")]static extern IntPtr GetWindowDpiAwarenessContext(IntPtr window);
         [DllImport("user32.dll")]static extern IntPtr SetThreadDpiAwarenessContext(IntPtr context);
+        [DllImport("user32.dll")]static extern IntPtr GetForegroundWindow();
+        [DllImport("user32.dll")]static extern IntPtr GetActiveWindow();
     }
 }

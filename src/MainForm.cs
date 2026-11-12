@@ -38,9 +38,9 @@ namespace MiyouDaily
         [System.Runtime.InteropServices.DllImport("dwmapi.dll")]
         static extern int DwmSetWindowAttribute(IntPtr hwnd,int attribute,ref int value,int size);
         protected override void OnHandleCreated(EventArgs e) { base.OnHandleCreated(e);try{int dark=1;DwmSetWindowAttribute(Handle,20,ref dark,4);}catch(DllNotFoundException){} }
-        // Compose child HWNDs into one frame: first show and maximize must not
-        // expose their erase backgrounds or a mixture of old/new layouts.
-        protected override CreateParams CreateParams {get{var p=base.CreateParams;p.ExStyle|=0x02000000;return p;}}
+        // Each custom control already buffers its own painting. Whole-tree
+        // WS_EX_COMPOSITED buffering makes native RichEdit/scrollbar updates
+        // wait for every descendant before the opaque window can be presented.
         static readonly Color Ink = Theme.Text, Muted = Theme.Muted, Accent = Theme.Lime;
 
         public MainForm(Store store, Settings settings)
