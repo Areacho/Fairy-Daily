@@ -30,6 +30,7 @@ namespace MiyouDaily
         bool closing,updatingStartup;
         bool dailyScheduleInstalled;
         internal bool HasDailySchedule {get{return dailyScheduleInstalled;}}
+        internal Control PlacementOwner {get;set;}
         public bool AllowExit { get; set; }
         public bool IsWorking { get { return operation != null; } }
         internal bool HasLogin {get{return HasMiyouLogin||HasHeyboxLogin;}}
@@ -113,7 +114,7 @@ namespace MiyouDaily
             if (File.Exists(store.LatestLog)){log.Text = File.ReadAllText(store.LatestLog);UiRendering.FormatLog(log,0,log.TextLength);}
             if (log.TextLength == 0) Write("欢迎使用。米游社与小黑盒可在上方分别登录，在每日签到委托中选择项目，确认设定后统一执行。");
             Action scrollMetrics=()=>root.AutoScrollMinSize=WindowLayout.Pixels(new Size(940,790),DeviceDpi);
-            Shown+=(s,e)=>scrollMetrics();DpiChanged+=(s,e)=>BeginInvoke(scrollMetrics);WindowLayout.Watch(this,()=>new Size(980,810));
+            Shown+=(s,e)=>scrollMetrics();DpiChanged+=(s,e)=>BeginInvoke(scrollMetrics);WindowLayout.Watch(this,()=>new Size(980,810),true,()=>PlacementOwner);
             VisibleChanged+=(s,e)=>{if(Visible){updatingStartup=true;try{autoStart.Checked=StartupManager.IsEnabled();}finally{updatingStartup=false;}}};
             FormClosing += (s, e) => {
                 DismissPageDialogue();
@@ -243,7 +244,7 @@ namespace MiyouDaily
         {
             try
             {
-                using (var dialog = new Form { Text = "导入登录凭证", Size = new Size(650, 235), StartPosition = FormStartPosition.CenterParent, MinimizeBox = false, MaximizeBox = false, Font = Font, BackColor=Theme.Surface, ForeColor=Theme.Text,Opacity=Theme.PopupOpacity })
+                using (var dialog = new Form { Text = "导入登录凭证", Size = new Size(650, 235), StartPosition = FormStartPosition.Manual, MinimizeBox = false, MaximizeBox = false, Font = Font, BackColor=Theme.Surface, ForeColor=Theme.Text,Opacity=Theme.PopupOpacity })
                 {
                     dialog.SuspendLayout();dialog.AutoScaleDimensions=new SizeF(96,96);dialog.AutoScaleMode=AutoScaleMode.Dpi;
                     dialog.FormClosed+=(s,e)=>{if(dialog.DialogResult!=DialogResult.OK)DismissPageDialogue();};
@@ -253,7 +254,7 @@ namespace MiyouDaily
                     var field = new TextBox { Location = new Point(18, 71), Width = 595, UseSystemPasswordChar = true, MaxLength = 32000, BackColor=Theme.Tile, ForeColor=Theme.Text, BorderStyle=BorderStyle.FixedSingle }; content.Controls.Add(field);
                     var save = MakeButton("加密保存", true); save.Location = new Point(490, 124); save.DialogResult = DialogResult.OK; content.Controls.Add(save); dialog.AcceptButton = save;
                     WindowLayout.Watch(dialog,()=>new Size(520,210));
-                    dialog.ResumeLayout(true);
+                    dialog.ResumeLayout(true);WindowLayout.Watch(dialog,()=>Size.Empty,true);
                     if (dialog.ShowDialog(owner??this) != DialogResult.OK) return;
                     store.SetCookie(settings, field.Text); field.Clear(); store.Save(settings); RefreshStatus(); Write("Cookie 已加密保存。可点击“立即签到”检查两类签到。");Speak("主人，登录凭证已保存，可以开始签到啦。");
                 }

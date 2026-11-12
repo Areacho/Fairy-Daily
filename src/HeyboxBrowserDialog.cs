@@ -28,7 +28,7 @@ namespace MiyouDaily
         {
             SuspendLayout();
             this.store=store;Text="小黑盒 · 登录验证";Icon=AppAssets.Icon;Font=AppFonts.Create(10);BackColor=Theme.Background;ForeColor=Theme.Text;Opacity=Theme.PopupOpacity;
-            AutoScaleDimensions=new SizeF(96,96);AutoScaleMode=AutoScaleMode.Dpi;ClientSize=new Size(460,360);MinimumSize=new Size(420,320);StartPosition=FormStartPosition.CenterParent;WindowLayout.Watch(this,()=>new Size(420,320));
+            AutoScaleDimensions=new SizeF(96,96);AutoScaleMode=AutoScaleMode.Dpi;ClientSize=new Size(460,360);MinimumSize=new Size(420,320);StartPosition=FormStartPosition.Manual;WindowLayout.Watch(this,()=>new Size(420,320),true);
             browser.Dock=DockStyle.Fill;Controls.Add(browser);FormClosing+=(s,e)=>{lifetime.Cancel();result.TrySetCanceled();};
             ResumeLayout(true);
         }

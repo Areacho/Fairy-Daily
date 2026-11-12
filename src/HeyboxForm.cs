@@ -45,7 +45,7 @@ namespace MiyouDaily
             cooldown.Interval=500;cooldown.Tick+=(s,e)=>RefreshButtons();cooldown.Start();
             FormClosing+=(s,e)=>{closing=true;lifetime.Cancel();};FormClosed+=(s,e)=>{if(!completed&&dismiss!=null)dismiss();};RefreshAccount();
             Append("支持短信验证码登录，也可导入已有账号配置。接入后返回小黑盒签到页面，即可下达每日委托。");
-            WindowLayout.Watch(this,()=>new Size(600,440));
+            WindowLayout.Watch(this,()=>new Size(600,440),true);
             ResumeLayout(true);
         }
         static SmoothLabel Label(string text){return new SmoothLabel{Text=text,Dock=DockStyle.Fill,TextAlign=ContentAlignment.MiddleLeft,BackColor=Color.Transparent};}

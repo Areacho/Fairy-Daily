@@ -37,7 +37,7 @@ namespace MiyouDaily
             body.Dock=DockStyle.Fill;body.BackColor=Color.Transparent;body.ColumnCount=1;body.ColumnStyles.Add(new ColumnStyle(SizeType.Percent,100));body.AutoScroll=true;root.Controls.Add(body,0,2);
             ScrollbarTheme.Attach(body);
             FormClosing+=(s,e)=>lifetime.Cancel();FormClosed+=(s,e)=>panel.DismissPageDialogue();Navigate(section,false);
-            DpiChanged+=(s,e)=>BeginInvoke(new Action(()=>{UpdateHeader();UpdateScrollMetrics();}));WindowLayout.Watch(this,MinimumLogical);
+            DpiChanged+=(s,e)=>BeginInvoke(new Action(()=>{UpdateHeader();UpdateScrollMetrics();}));WindowLayout.Watch(this,MinimumLogical,true);
             ResumeLayout(true);
         }
         Size MinimumLogical(){return section==FairySection.MiyouTasks?new Size(820,600):new Size(520,280);}
@@ -84,7 +84,8 @@ namespace MiyouDaily
         {history.Clear();ShowSection(target,announce);}
         void ShowSection(FairySection target,bool announce)
         {
-            using(var redraw=new WindowRedrawBatch(this))ShowSectionCore(target);
+            Rectangle? previous=Visible&&WindowState==FormWindowState.Normal?(Rectangle?)Bounds:null;
+            using(var redraw=new WindowRedrawBatch(this)){ShowSectionCore(target);if(previous.HasValue)WindowLayout.PreserveCenter(this,previous.Value,MinimumLogical());}
             if(announce)panel.Tell(description.Text);
         }
         void ShowSectionCore(FairySection target)
@@ -127,7 +128,6 @@ namespace MiyouDaily
             body.RowStyles.Add(new RowStyle(SizeType.Percent,100));body.RowCount++;
             host.Controls.Remove(previous);host.Controls.Add(body,0,2);
             Text="Fairy · "+heading.Text;body.ResumeLayout(false);host.ResumeLayout(true);ResumeLayout(true);body.PerformLayout();
-            if(Visible)WindowLayout.Fit(this,MinimumLogical());
             previous.Dispose();
         }
         void BuildTasks(FairyPlatform platform)

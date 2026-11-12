@@ -96,7 +96,7 @@ namespace MiyouDaily
         internal bool IsClosingEye {get{return lifecycle.Phase==EyePhase.Closing;}}
         public FairyWidget(Store store, MainForm panel)
         {
-            this.store=store;this.panel=panel;
+            this.store=store;this.panel=panel;panel.PlacementOwner=this;
             try {prefs=Json.Read<WidgetPreferences>(File.ReadAllText(Path.Combine(store.Root,"widget.json")));}catch{prefs=new WidgetPreferences();}
             if(prefs==null)prefs=new WidgetPreferences();prefs.Size=Math.Max(180,Math.Min(380,prefs.Size));
             Text="Fairy · 桌面挂件";Icon=AppAssets.Icon;Font=AppFonts.Create(10); FormBorderStyle=FormBorderStyle.None;ShowInTaskbar=false;StartPosition=FormStartPosition.Manual;
@@ -193,7 +193,7 @@ namespace MiyouDaily
             CancelAutoExit();
             if(!Visible){Show();timer.Interval=prefs.Paused?500:33;timer.Start();}dialogue.Say(message);dialogue.ShowFor(this);
         }
-        public void OpenPanel(){if(IsClosingEye)return;CancelAutoExit();if(panel.IsDisposed)return;panel.Show();panel.WindowState=FormWindowState.Normal;panel.Activate();panel.Tell("主人，总控制面板已接入。全部委托、账号与运行记录都在这里。");}
+        public void OpenPanel(){if(IsClosingEye)return;CancelAutoExit();if(panel.IsDisposed)return;panel.WindowState=FormWindowState.Normal;WindowLayout.CenterOnScreen(panel,new Size(980,810),this);panel.Show();panel.Activate();panel.Tell("主人，总控制面板已接入。全部委托、账号与运行记录都在这里。");}
         static string SizeLabel(int size){return size==180?"小号":size==250?"标准":size==330?"大号":"自定义";}
         void CheckinFinished(FairyMessage notice){DeliverCompletion(notice);}
         internal bool DeliverCompletion(FairyMessage notice,bool? desktopAvailable=null)
@@ -255,7 +255,8 @@ namespace MiyouDaily
             if(IsClosingEye)return;
             CancelAutoExit();
             if(panel.IsWorking){Say("主人，上一项委托还在处理，请稍候。");return;}
-            if(module==null||module.IsDisposed){module=new FairyModuleForm(panel,section);module.Show(this);}else{module.Navigate(section,false);module.Show();}
+            if(module==null||module.IsDisposed){module=new FairyModuleForm(panel,section);module.Show(this);}else{module.WindowState=FormWindowState.Normal;module.Navigate(section,false);module.Show();}
+            WindowLayout.CenterOnScreen(module,section==FairySection.MiyouTasks?new Size(820,600):new Size(520,280),this);
             module.Activate();string text=section==FairySection.Schedule?"主人，定时通道已展开。请设定您希望我开始工作的时间。":section==FairySection.Login?"主人，登录通道已就绪。请选择米游社或小黑盒完成授权。":"主人，签到通道已接入。选择平台，Fairy 随时待命。";Say(text);
         }
         void Clamp(){var a=Screen.FromRectangle(Bounds).WorkingArea;Location=new Point(Math.Max(a.Left,Math.Min(Left,a.Right-Width)),Math.Max(a.Top,Math.Min(Top,a.Bottom-Height)));}

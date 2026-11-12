@@ -12,7 +12,6 @@ namespace MiyouDaily
         readonly SmoothLabel status=new SmoothLabel();
         readonly Timer fade=new Timer();
         readonly Stopwatch fadeClock=new Stopwatch();
-        Form anchor;
         public QrLoginForm()
         {
             SuspendLayout();Text="Fairy · 扫码登录";Icon=AppAssets.Icon;Font=AppFonts.Create(10);
@@ -30,7 +29,7 @@ namespace MiyouDaily
             var cancel=new RoundButton{Text="取消登录",Dock=DockStyle.Fill};cancel.Click+=(s,e)=>Close();CancelButton=cancel;root.Controls.Add(cancel,0,3);
             root.Paint+=(s,e)=>{e.Graphics.SmoothingMode=SmoothingMode.AntiAlias;using(var path=Theme.Round(new RectangleF(.5f,.5f,root.Width-1,root.Height-1),22*DeviceDpi/96f))using(var pen=new Pen(Theme.Edge))e.Graphics.DrawPath(pen,path);};
             fade.Interval=16;fade.Tick+=(s,e)=>{Opacity=Theme.PopupOpacity*Math.Min(1,fadeClock.Elapsed.TotalMilliseconds/170);if(Opacity>=Theme.PopupOpacity)fade.Stop();};
-            DpiChanged+=(s,e)=>BeginInvoke(new Action(()=>{RoundWindow();PlaceNearAnchor();}));ResumeLayout(true);WindowLayout.Watch(this,()=>Size.Empty);
+            DpiChanged+=(s,e)=>BeginInvoke(new Action(RoundWindow));ResumeLayout(true);WindowLayout.Watch(this,()=>Size.Empty,true);
         }
         public void SetStatus(string text){if(!IsDisposed)status.Text=text;}
         public void SetCode(Bitmap image)
@@ -39,22 +38,14 @@ namespace MiyouDaily
         }
         public void ShowFor(Form owner)
         {
-            anchor=owner;Opacity=0;
+            Opacity=0;
             if(owner!=null){TopMost=owner.TopMost;Show(owner);}else Show();
         }
-        protected override void OnShown(EventArgs e){base.OnShown(e);RoundWindow();PlaceNearAnchor();fadeClock.Restart();fade.Start();}
+        protected override void OnShown(EventArgs e){base.OnShown(e);RoundWindow();fadeClock.Restart();fade.Start();}
         protected override void OnSizeChanged(EventArgs e){base.OnSizeChanged(e);if(IsHandleCreated)RoundWindow();}
         protected override void OnKeyDown(KeyEventArgs e){base.OnKeyDown(e);if(e.KeyCode==Keys.Escape)Close();}
         void RoundWindow()
         {if(Width<1||Height<1)return;using(var path=Theme.Round(new RectangleF(0,0,Width,Height),22*DeviceDpi/96f)){var old=Region;Region=new Region(path);if(old!=null)old.Dispose();}}
-        void PlaceNearAnchor()
-        {
-            if(anchor==null||anchor.IsDisposed)return;var area=Screen.FromRectangle(anchor.Bounds).WorkingArea;int gap=WindowLayout.Pixels(12,DeviceDpi);
-            int x,y;
-            if(anchor is FairyWidget){x=anchor.Left-Width-gap;if(x<area.Left+gap)x=anchor.Right+gap;y=anchor.Top+(anchor.Height-Height)/2;}
-            else{x=anchor.Left+(anchor.Width-Width)/2;y=anchor.Top+(anchor.Height-Height)/2;}
-            Location=new Point(Math.Max(area.Left+gap,Math.Min(x,area.Right-Width-gap)),Math.Max(area.Top+gap,Math.Min(y,area.Bottom-Height-gap)));
-        }
         protected override void Dispose(bool disposing){if(disposing)fade.Dispose();base.Dispose(disposing);}
         sealed class QrCanvas : Control
         {
