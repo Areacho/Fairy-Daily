@@ -72,7 +72,9 @@ partial class Tests
             Assert(!menu.ShowImageMargin&&!menu.ShowCheckMargin&&menu.Renderer is FairyMenuRenderer,"HDD menu removes native gutters and uses the shared custom renderer");
             Assert(menu.Region!=null&&!menu.Region.IsVisible(0,0)&&menu.Region.IsVisible(menu.Width/2,menu.Height/2),"native context menu has a rounded visible region");
             var run=menu.Items.OfType<FairyMenuItem>().First();
-            Assert(menu.GetNextItem(run,ArrowDirection.Down).Text=="签到配置"&&run.Bounds.Left>=menu.Padding.Left&&Math.Abs((menu.Width-run.Bounds.Right)-run.Bounds.Left)<=2,"menu preserves native vertical navigation with balanced horizontal margins");
+            Assert(menu.GetNextItem(run,ArrowDirection.Down).Text=="签到配置"&&run.Bounds.Left>=WindowLayout.Pixels(6,menu.DeviceDpi)&&Math.Abs((menu.Width-run.Bounds.Right)-run.Bounds.Left)<=2,"menu preserves native vertical navigation with balanced horizontal margins");
+            var oldMenu=WindowLayout.Pixels(new Size(280,520),menu.DeviceDpi);double ratio=menu.Width*(double)menu.Height/(oldMenu.Width*(double)oldMenu.Height);
+            Assert(ratio>=.40&&ratio<=.60&&menu.Font.SizeInPoints>=9,"compact context menu uses about half the previous area while keeping readable text");
             var top=menu.Items.OfType<FairyMenuItem>().Single(i=>i.Text=="始终置顶");top.PerformClick();Assert(!top.Checked&&top.Hint=="已关闭"&&!widget.TopMost,"pin menu item updates its status badge and actual widget state");
             var pause=menu.Items.OfType<FairyMenuItem>().Single(i=>i.Text=="暂停动画");pause.PerformClick();Assert(pause.Checked&&pause.Hint=="已暂停","pause menu item updates its animation status badge");
             var size=menu.Items.OfType<FairyMenuItem>().Single(i=>i.Text=="挂件大小");size.DropDownItems[0].PerformClick();Assert(size.Hint=="小号"&&widget.Width==WindowLayout.Pixels(180,widget.DeviceDpi),"size submenu keeps the active size and widget dimensions in sync");
@@ -81,15 +83,16 @@ partial class Tests
             foreach(int dpi in new[]{96,144,192,288})
             {
                 SetChildDpi(menu,dpi);menu.PrepareLayout();
-                Assert(menu.Items.OfType<FairyMenuItem>().All(i=>i.Height>=WindowLayout.Pixels(40,dpi)&&i.Width>=WindowLayout.Pixels(260,dpi)),"menu target sizes scale with native DPI at "+dpi+" DPI");
+                Assert(menu.Items.OfType<FairyMenuItem>().All(i=>i.Height>=WindowLayout.Pixels(28,dpi)&&i.Height<=WindowLayout.Pixels(32,dpi)&&i.Width>=WindowLayout.Pixels(196,dpi)&&i.Width<=WindowLayout.Pixels(200,dpi)),"compact menu targets keep their proportions at "+dpi+" DPI");
             }
             SetChildDpi(menu,nativeDpi);menu.PrepareLayout();menu.MaximumSize=new Size(0,WindowLayout.Pixels(320,nativeDpi));
-            var area=Screen.PrimaryScreen.WorkingArea;menu.Opacity=0;menu.Show(new Point(area.Left+40,area.Top+40));
+            var area=Screen.PrimaryScreen.WorkingArea;widget.Show();menu.Opacity=0;menu.Show(widget,widget.PointToClient(new Point(area.Left+40,area.Top+40)));
             var exit=menu.Items.OfType<FairyMenuItem>().Single(i=>i.Danger);run.Select();
             var arrow=typeof(ToolStrip).GetMethod("ProcessArrowKey",BindingFlags.NonPublic|BindingFlags.Instance);
             for(int step=1;step<menu.Items.OfType<FairyMenuItem>().Count();step++)arrow.Invoke(menu,new object[]{Keys.Down});
-            Application.DoEvents();
-            Assert(exit.Selected&&area.Contains(menu.Bounds)&&menu.ClientRectangle.Contains(new Point(exit.Bounds.Left+1,exit.Bounds.Top+exit.Height/2)),"height-constrained native menu keeps its final action reachable by keyboard scrolling");menu.Close();
+            // Check synchronous navigation before unrelated foreground changes
+            // on the test desktop can correctly auto-dismiss this popup.
+            Assert(exit.Selected&&area.Contains(menu.Bounds)&&menu.ClientRectangle.Contains(new Point(exit.Bounds.Left+1,exit.Bounds.Top+exit.Height/2)),"height-constrained native menu keeps its final action reachable by keyboard scrolling");menu.Close();Application.DoEvents();
             panel.AllowExit=true;
         }
     }

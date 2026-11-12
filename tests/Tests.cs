@@ -476,9 +476,10 @@ partial class Tests
             if (args.Contains("--scroll-check")) { ScrollbarChecks();return 0; }
             if (args.Contains("--motion-check")) { MotionNoticeChecks();AutoExitChecks();return 0; }
             if (args.Contains("--layer-check")) { DialogueLayerChecks();return 0; }
+            if (args.Contains("--anchor-menu-check")) { AnchorMenuChecks();ContextMenuChecks();return 0; }
             if (args.Contains("--probe-qr")) { ProbeQr().GetAwaiter().GetResult(); return 0; }
             if (args.Contains("--probe-heybox-token")) return ProbeHeyboxToken();
-            Basic(); ApiTests().GetAwaiter().GetResult(); PartialForumRetries().GetAwaiter().GetResult(); PartialRoleRetries().GetAwaiter().GetResult(); CompletionChecks().GetAwaiter().GetResult(); AccountScopeChecks().GetAwaiter().GetResult(); DataLocationChecks(); ScheduledNoticeChecks(); HeyboxChecks().GetAwaiter().GetResult(); CompletionNoticeChecks(); MotionNoticeChecks(); DialogueLayerChecks(); AutoExitChecks(); InterfaceChecks(); HddNavigationChecks(); ContextMenuChecks(); ScrollbarChecks(); HighDpiChecks(); RenderingChecks(); DigitalClockChecks(); StartupChecks();
+            Basic(); ApiTests().GetAwaiter().GetResult(); PartialForumRetries().GetAwaiter().GetResult(); PartialRoleRetries().GetAwaiter().GetResult(); CompletionChecks().GetAwaiter().GetResult(); AccountScopeChecks().GetAwaiter().GetResult(); DataLocationChecks(); ScheduledNoticeChecks(); HeyboxChecks().GetAwaiter().GetResult(); CompletionNoticeChecks(); MotionNoticeChecks(); DialogueLayerChecks(); AutoExitChecks(); InterfaceChecks(); HddNavigationChecks(); AnchorMenuChecks(); ContextMenuChecks(); ScrollbarChecks(); HighDpiChecks(); RenderingChecks(); DigitalClockChecks(); StartupChecks();
             string smoke = Path.GetFullPath(Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "..", "build", "scheduler-smoke.xml"));
             var xml = XDocument.Parse(Scheduler.MakeXml(Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "MiyouDaily.exe"), System.Security.Principal.WindowsIdentity.GetCurrent().User.Value, "09:00", Clock.ChinaNow));
             foreach (var enabled in xml.Descendants().Where(x => x.Name.LocalName == "Enabled")) enabled.Value = "false";

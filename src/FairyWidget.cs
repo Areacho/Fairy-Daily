@@ -91,6 +91,7 @@ namespace MiyouDaily
         internal double AutoExitDeadline {get{return exitDeadline;}}
         readonly EyeLifecycle lifecycle=new EyeLifecycle();bool allowAnimatedClose;
         string activeProgress;double progressShownAt;
+        IntPtr menuReturnWindow;bool menuInteraction;
         internal const double MinimumProgressSeconds=1.2;
         internal bool IsClosingEye {get{return lifecycle.Phase==EyePhase.Closing;}}
         public FairyWidget(Store store, MainForm panel)
@@ -118,14 +119,14 @@ namespace MiyouDaily
             menu.Items.Add(new FairyMenuSeparator());
             menu.Items.Add(new FairyMenuItem("收起到托盘","tray",(s,e)=>{CancelAutoExit();Hide();dialogue.HideNow();timer.Interval=750;}));
             menu.Items.Add(new FairyMenuItem("退出挂件","power",(s,e)=>Close()){Danger=true});
-            menu.Opening+=(s,e)=>{e.Cancel=IsClosingEye;CancelAutoExit();run.Enabled=!panel.IsWorking;};ContextMenuStrip=menu;
-            dialogue=new FairyDialogue(panel,OpenPanel);dialogue.Dismissed+=CancelAutoExit;panel.SpeechRequested+=Say;
+            menu.Opening+=(s,e)=>{e.Cancel=IsClosingEye;CancelAutoExit();run.Enabled=!panel.IsWorking;if(!e.Cancel)BeginMenuInteraction();};
+            menu.Closed+=(s,e)=>EndMenuInteraction(e.CloseReason);ContextMenuStrip=menu;
+            dialogue=new FairyDialogue(panel,OpenPanel);dialogue.BindWidget(this);dialogue.Dismissed+=CancelAutoExit;panel.SpeechRequested+=Say;
             panel.ModuleRequested+=OpenModule;
             panel.DialogueDismissRequested+=HideDialogue;
             panel.CheckinCompleted+=CheckinFinished;
             try{var last=SpeechBus.Read(store);if(last!=null&&!last.IsCompletion&&!last.IsProgress)lastSpeech=last.Id;}catch{}
             clickDelay.Interval=SystemInformation.DoubleClickTime;clickDelay.Tick+=(s,e)=>{clickDelay.Stop();if(dialogue.Visible)dialogue.Dismiss();else{dialogue.OpenShortcuts(greeting.Begin());dialogue.ShowFor(this);}};
-            LocationChanged+=(s,e)=>{if(dialogue.Visible)dialogue.PlaceNear(this);};
             tray=new NotifyIcon{Icon=AppAssets.Icon,Text="Fairy 日签 · 双击显示挂件",Visible=true,ContextMenuStrip=menu};
             tray.DoubleClick+=(s,e)=>{CancelAutoExit();Show();timer.Interval=prefs.Paused?500:33;timer.Start();Render();};
             MouseDown+=(s,e)=>{if(IsClosingEye)return;CancelAutoExit();if(e.Button==MouseButtons.Left){clickDelay.Stop();anchor=Cursor.Position;origin=Location;dragging=true;moved=false;Capture=true;}};
@@ -163,6 +164,28 @@ namespace MiyouDaily
             if(lifecycle.Advance(now)){allowAnimatedClose=true;Close();return true;}
             int interval=lifecycle.Phase==EyePhase.Opening||IsClosingEye?16:!Visible?750:prefs.Paused?500:33;
             if(timer.Interval!=interval)timer.Interval=interval;return false;
+        }
+        protected override void WndProc(ref Message message)
+        {
+            // A context menu is an explicit user interaction. Its owner must
+            // be active before the menu captures input, so clicks in other
+            // applications can dismiss it. Passive notifications stay unchanged.
+            if(message.Msg==0x7B&&!IsClosingEye)BeginMenuInteraction();
+            base.WndProc(ref message);
+        }
+        void BeginMenuInteraction()
+        {
+            if(!Visible||!IsHandleCreated)return;
+            if(!menuInteraction){menuReturnWindow=GetForegroundWindow();menuInteraction=true;}
+            SetForegroundWindow(Handle);
+        }
+        void EndMenuInteraction(ToolStripDropDownCloseReason reason)
+        {
+            IntPtr previous=menuReturnWindow;menuReturnWindow=IntPtr.Zero;menuInteraction=false;
+            if(!IsHandleCreated||IsDisposed)return;
+            PostMessage(Handle,0,IntPtr.Zero,IntPtr.Zero);
+            if(previous==IntPtr.Zero||previous==Handle||reason==ToolStripDropDownCloseReason.AppClicked||reason==ToolStripDropDownCloseReason.AppFocusChange)return;
+            BeginInvoke(new Action(()=>{if(!IsDisposed&&IsHandleCreated&&GetForegroundWindow()==Handle&&GetCapture()==IntPtr.Zero)SetForegroundWindow(previous);}));
         }
         public void Say(string message)
         {
@@ -260,6 +283,10 @@ namespace MiyouDaily
         [StructLayout(LayoutKind.Sequential)]struct Sz{public int X,Y;public Sz(int x,int y){X=x;Y=y;}}
         [StructLayout(LayoutKind.Sequential,Pack=1)]struct Blend{public byte Op,Flags,Alpha,Format;}
         [DllImport("user32.dll")]static extern IntPtr GetDC(IntPtr hwnd);
+        [DllImport("user32.dll")]static extern IntPtr GetForegroundWindow();
+        [DllImport("user32.dll")]static extern bool SetForegroundWindow(IntPtr window);
+        [DllImport("user32.dll")]static extern IntPtr GetCapture();
+        [DllImport("user32.dll")]static extern bool PostMessage(IntPtr window,int message,IntPtr wparam,IntPtr lparam);
         [DllImport("user32.dll")]static extern int ReleaseDC(IntPtr hwnd,IntPtr dc);
         [DllImport("gdi32.dll")]static extern IntPtr CreateCompatibleDC(IntPtr dc);
         [DllImport("gdi32.dll")]static extern bool DeleteDC(IntPtr dc);

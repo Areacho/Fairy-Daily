@@ -19,16 +19,17 @@ namespace MiyouDaily
             int left=Math.Max(available.Left,Math.Min(proposed.Left,available.Right-width)),top=Math.Max(available.Top,Math.Min(proposed.Top,available.Bottom-height));
             return new Rectangle(left,top,width,height);
         }
-        internal static Point PlaceNotice(Rectangle proposed,Rectangle anchor,Rectangle area,Point cursor,int dpi)
+        internal static Point PlaceBesideWidget(Size bubble,Rectangle widget,Rectangle area,int dpi,ref bool? dockLeft)
         {
-            int gap=Pixels(12,dpi);
-            var points=new[]{proposed.Location,new Point(anchor.Right+gap,proposed.Top),new Point(proposed.Left,anchor.Top-proposed.Height-gap),new Point(proposed.Left,anchor.Bottom+gap),new Point(area.Left+gap,area.Top+gap),new Point(area.Right-proposed.Width-gap,area.Top+gap),new Point(area.Left+gap,area.Bottom-proposed.Height-gap),new Point(area.Right-proposed.Width-gap,area.Bottom-proposed.Height-gap)};
-            foreach(var point in points)
-            {
-                var candidate=FitBounds(new Rectangle(point,proposed.Size),area,dpi);
-                if(!Rectangle.Inflate(candidate,gap,gap).Contains(cursor))return candidate.Location;
-            }
-            return FitBounds(proposed,area,dpi).Location;
+            int gap=Pixels(6,dpi),overlap=Pixels(22,dpi);
+            int left=widget.Left-bubble.Width+overlap;
+            int right=widget.Right-overlap;
+            bool fitsLeft=left>=area.Left+gap,fitsRight=right+bubble.Width<=area.Right-gap;
+            bool useLeft=dockLeft.GetValueOrDefault(true);
+            if(!fitsLeft&&fitsRight)useLeft=false;else if(!fitsRight&&fitsLeft)useLeft=true;
+            dockLeft=useLeft;left=useLeft?left:right;
+            int height=Math.Max(bubble.Height,Pixels(164,dpi));
+            return new Point(Math.Max(area.Left+gap,Math.Min(left,area.Right-bubble.Width-gap)),Math.Max(area.Top+gap,Math.Min(widget.Top+Pixels(30,dpi),area.Bottom-height-gap)));
         }
         public static void Fit(Form form,Size minimumLogical)
         {

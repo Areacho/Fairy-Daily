@@ -53,9 +53,9 @@ partial class Tests
         Assert(retryResult!=null&&retryResult.RunId==retry.RunId,"an announced retry always publishes its terminal result even when the result text is unchanged");
         foreach(int dpi in new[]{96,144,192,288})
         {
-            var area=new Rectangle(0,0,2560,1400);var size=WindowLayout.Pixels(new Size(480,164),dpi);var proposed=new Rectangle(100,100,size.Width,size.Height);var cursor=new Point(proposed.Left+30,proposed.Top+30);
-            var point=WindowLayout.PlaceNotice(proposed,new Rectangle(600,100,250,250),area,cursor,dpi);
-            Assert(area.Contains(new Rectangle(point,size))&&!new Rectangle(point,size).Contains(cursor),"passive notice placement avoids the cursor and stays on screen at "+dpi+" DPI");
+            var area=new Rectangle(0,0,2560,1400);var size=WindowLayout.Pixels(new Size(480,164),dpi);bool? side=null;
+            var point=WindowLayout.PlaceBesideWidget(size,new Rectangle(600,100,250,250),area,dpi,ref side);
+            Assert(area.Contains(new Rectangle(point,size)),"widget-anchored notice stays on screen at "+dpi+" DPI");
         }
         SmoothNavigationChecks();
     }

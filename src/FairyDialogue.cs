@@ -18,7 +18,8 @@ namespace MiyouDaily
         readonly ToolTip tips=new ToolTip();
         readonly MainForm panel;
         Form anchor;
-        Point? noticeLocation;
+        bool widgetBound;
+        bool? dockLeft;
         enum Mode{Greeting,Options,Notice,Closing}
         Mode mode;
         int targetHeight=126;
@@ -53,7 +54,9 @@ namespace MiyouDaily
             KeyPreview=true;KeyDown+=(s,e)=>idleClock.Restart();
             VisibleChanged+=(s,e)=>{if(Visible){RefreshActions();clock.Restart();idleClock.Restart();motion.Start();idle.Start();}else{motion.Stop();idle.Stop();}};
             DpiChanged+=(s,e)=>BeginInvoke(new Action(()=>{LayoutMessage();LayoutActions(mode==Mode.Notice);RoundWindow();Reposition();}));
-            ResumeLayout(true);WindowLayout.Watch(this,()=>Size.Empty);
+            ResumeLayout(true);
+            EventHandler displayChanged=(s,e)=>{if(IsHandleCreated&&!IsDisposed)try{BeginInvoke(new Action(Reposition));}catch(InvalidOperationException){}};
+            Microsoft.Win32.SystemEvents.DisplaySettingsChanged+=displayChanged;Disposed+=(s,e)=>Microsoft.Win32.SystemEvents.DisplaySettingsChanged-=displayChanged;
         }
         protected override bool ShowWithoutActivation{get{return true;}}
         protected override CreateParams CreateParams{get{var p=base.CreateParams;p.ExStyle|=0x80;return p;}}
@@ -69,11 +72,11 @@ namespace MiyouDaily
             if(panelIcon==null||message==null||actions==null)return;
             LayoutMessage();LayoutActions(!compactEye);
         }
-        protected override void Dispose(bool disposing){if(disposing){motion.Dispose();idle.Dispose();tips.Dispose();}base.Dispose(disposing);}
-        public void ShowFor(Form owner)
+        protected override void Dispose(bool disposing){if(disposing){SetAnchor(null);motion.Dispose();idle.Dispose();tips.Dispose();}base.Dispose(disposing);}
+        public void ShowFor(Form widget)
         {
-            if(IsDisposed)return;PlaceNear(owner);
-            if(!Visible){if(owner==null)Show();else Show(owner);}
+            if(IsDisposed)return;PlaceNear(widget);
+            if(!Visible){if(anchor==null)Show();else Show(anchor);}
             DialogueLayer.Raise(this);
         }
         internal void MaintainLayer(){if(mode!=Mode.Closing)DialogueLayer.Maintain(this);}
@@ -99,7 +102,6 @@ namespace MiyouDaily
         }
         public void Say(string text,bool extended=false)
         {
-            noticeLocation=null;
             RefreshActions();message.Text=text;message.Visible=true;actions.Visible=false;
             Begin(Mode.Notice,extended?164:126);
         }
@@ -149,19 +151,21 @@ namespace MiyouDaily
             RoundWindow();Reposition();Invalidate(true);
             if(t>=1){motion.Stop();idleClock.Restart();}
         }
-        public void PlaceNear(Form widget){anchor=widget;noticeLocation=null;Reposition();}
+        internal void BindWidget(FairyWidget widget){widgetBound=true;SetAnchor(widget);Reposition();}
+        void SetAnchor(Form widget)
+        {
+            if(anchor==widget)return;
+            if(anchor!=null){anchor.LocationChanged-=AnchorChanged;anchor.SizeChanged-=AnchorChanged;}
+            anchor=widget;dockLeft=null;
+            if(anchor!=null){anchor.LocationChanged+=AnchorChanged;anchor.SizeChanged+=AnchorChanged;}
+        }
+        void AnchorChanged(object sender,EventArgs e){Reposition();}
+        public void PlaceNear(Form widget){if(!widgetBound)SetAnchor(widget);Reposition();}
         void Reposition()
         {
             if(anchor==null||anchor.IsDisposed)return;
-            var area=Screen.FromRectangle(anchor.Bounds).WorkingArea;int gap=WindowLayout.Pixels(6,DeviceDpi),overlap=WindowLayout.Pixels(22,DeviceDpi);
-            int left=anchor.Left-Width+overlap;if(left<area.Left+gap)left=anchor.Right-overlap;
-            var proposed=new Point(Math.Max(area.Left+gap,Math.Min(left,area.Right-Width-gap)),Math.Max(area.Top+gap,Math.Min(anchor.Top+WindowLayout.Pixels(30,DeviceDpi),area.Bottom-Height-gap)));
-            if(mode==Mode.Notice)
-            {
-                if(!noticeLocation.HasValue)noticeLocation=WindowLayout.PlaceNotice(new Rectangle(proposed,new Size(Width,WindowLayout.Pixels(targetHeight,DeviceDpi))),anchor.Bounds,area,Cursor.Position,DeviceDpi);
-                Location=noticeLocation.Value;
-            }
-            else Location=proposed;
+            var area=Screen.FromRectangle(anchor.Bounds).WorkingArea;
+            Location=WindowLayout.PlaceBesideWidget(new Size(Width,Math.Max(Height,WindowLayout.Pixels(164,DeviceDpi))),anchor.Bounds,area,DeviceDpi,ref dockLeft);
         }
         void RoundWindow(){if(Width<1||Height<1)return;using(var path=Theme.Round(new RectangleF(0,0,Width,Height),24*DeviceDpi/96f)){var old=Region;Region=new Region(path);if(old!=null)old.Dispose();}}
         protected override void OnPaint(PaintEventArgs e)
