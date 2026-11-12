@@ -24,6 +24,15 @@ partial class Tests
         motion.Advance(1+EyeLifecycle.CloseSeconds+.001);Assert(motion.Phase==EyePhase.Closed&&motion.Alpha==0,"closing ends on a fully transparent frame");
         motion.BeginOpening(2);motion.Advance(2.08);first=motion.Openness;float alpha=motion.Alpha;motion.BeginClosing(2.08);motion.Advance(2.08);
         Assert(Math.Abs(motion.Openness-first)<.001&&Math.Abs(motion.Alpha-alpha)<.001,"exiting during startup continues from the current eye frame without a brightness jump");
+        using(var image=new Bitmap(240,240))using(var g=Graphics.FromImage(image))
+        {
+            g.Clear(Color.Transparent);FairyArt.FlareEye(g,new RectangleF(20,20,200,200),5,PointF.Empty,false,.22f);
+            var center=image.GetPixel(120,120);
+            Assert(center.R>170&&center.G>170&&center.B>170,"shutdown intermediate frame has a bright white optical streak at its center");
+            Assert(image.GetPixel(120,40).A==0&&image.GetPixel(40,40).A==0,"the blue eye and surrounding area disappear while the horizontal flare remains");
+            g.Clear(Color.Transparent);FairyArt.FlareEye(g,new RectangleF(20,20,200,200),5,PointF.Empty,false,0);
+            Assert(image.GetPixel(120,120).A==0,"fully closed optical frame is transparent rather than a remaining blue disc");
+        }
         var store=TestStore();var settings=Setup(store,new string[0],new[]{"5"});store.SaveState(CompletedState(settings,FakeCookie));
         var progress=CheckinNotifications.PublishStarted(store,true);
         Assert(progress.IsProgress&&!progress.IsCompletion&&progress.Text.Contains("定时委托已启动")&&CheckinNotifications.ShouldStartWidget(progress,false),"scheduled execution publishes its own start bubble and wakes a missing widget");

@@ -14,10 +14,47 @@ namespace MiyouDaily
 {
     public static class FairyArt
     {
+        public static void FlareEye(Graphics g,RectangleF bounds,double seconds,PointF look,bool busy,float reveal)
+        {
+            reveal=Math.Max(0,Math.Min(1,reveal));if(reveal<=0)return;
+            if(reveal>=1){Eye(g,bounds,seconds,look,busy);return;}
+            var saved=g.Save();g.SmoothingMode=SmoothingMode.AntiAlias;
+            float cx=bounds.X+bounds.Width/2,cy=bounds.Y+bounds.Height/2;
+            float opening=Math.Max(0,(reveal-.28f)/.72f);opening=opening*opening*(3-2*opening);
+            if(opening>0)
+            {
+                var iris=g.Save();g.TranslateTransform(cx,cy);g.ScaleTransform(1,Math.Max(.008f,opening));g.TranslateTransform(-cx,-cy);
+                // Keep pose and rotation continuous, while suppressing the
+                // idle glitch accent throughout the optical transition.
+                Eye(g,bounds,seconds,look,busy,1,true);g.Restore(iris);
+            }
+            float strength=1-opening,stretch=Math.Min(1,reveal/.28f);
+            stretch=stretch*stretch*(3-2*stretch);
+            float width=Math.Max(1,bounds.Width*.82f*stretch),unit=bounds.Width/180f;
+            for(int layer=5;layer>=0;layer--)
+            {
+                float thickness=(layer==0?1.1f:2+layer*2.4f)*unit;
+                int alpha=(int)(strength*(layer==0?255:24));if(alpha<=0)continue;
+                var line=new RectangleF(cx-width/2,cy-thickness/2,width,Math.Max(1,thickness));
+                using(var brush=new LinearGradientBrush(line,Color.Transparent,Color.Transparent,0f))
+                {
+                    brush.InterpolationColors=new ColorBlend{Positions=new[]{0f,.16f,.5f,.84f,1f},Colors=new[]{Color.Transparent,Color.FromArgb(alpha/3,168,220,255),Color.FromArgb(alpha,255,255,255),Color.FromArgb(alpha/3,168,220,255),Color.Transparent}};
+                    using(var pen=new Pen(brush,thickness){StartCap=LineCap.Round,EndCap=LineCap.Round})g.DrawLine(pen,cx-width/2,cy,cx+width/2,cy);
+                }
+            }
+            float glow=(3+6*(1-stretch))*unit;
+            using(var path=new GraphicsPath())
+            {
+                path.AddEllipse(cx-glow*2,cy-glow,glow*4,glow*2);
+                using(var brush=new PathGradientBrush(path)){brush.CenterColor=Color.FromArgb((int)(210*strength),245,252,255);brush.SurroundColors=new[]{Color.Transparent};g.FillPath(brush,path);}
+            }
+            using(var pen=new Pen(Color.FromArgb((int)(200*strength),255,255,255),Math.Max(.7f,unit)))g.DrawLine(pen,cx,cy-glow*.9f,cx,cy+glow*.9f);
+            g.Restore(saved);
+        }
         public static readonly Color Lime = Color.FromArgb(221, 248, 64), Cyan = Color.FromArgb(121, 225, 255);
         static void Disc(Graphics g, Color color, float x, float y, float r)
         { using (var b = new SolidBrush(color)) g.FillEllipse(b, x-r, y-r, r*2, r*2); }
-        public static void Eye(Graphics g, RectangleF bounds, double seconds, PointF look, bool busy,float openness=1)
+        public static void Eye(Graphics g, RectangleF bounds, double seconds, PointF look, bool busy,float openness=1,bool quiet=false)
         {
             var saved = g.Save(); g.SmoothingMode = SmoothingMode.AntiAlias;
             g.TranslateTransform(bounds.X+bounds.Width/2, bounds.Y+bounds.Height/2);
@@ -45,7 +82,7 @@ namespace MiyouDaily
             g.Restore(iris);
             using(var clip=new GraphicsPath()) {clip.AddEllipse(-67,-67,134,134); var scan=g.Save();g.SetClip(clip);
                 using(var p=new Pen(Color.FromArgb(15,201,248,255))) for(int y=-64;y<67;y+=4)g.DrawLine(p,-68,y,68,y);
-                if(seconds%13.0>12.83) using(var p=new Pen(Color.FromArgb(160,145,239,255),2)) {g.DrawLine(p,-61,-19,51,-19);g.DrawLine(p,-45,21,65,21);}
+                if(!quiet&&seconds%13.0>12.83) using(var p=new Pen(Color.FromArgb(160,145,239,255),2)) {g.DrawLine(p,-61,-19,51,-19);g.DrawLine(p,-45,21,65,21);}
                 g.Restore(scan);
             }
             float pulse=(float)(seconds%4/4);
@@ -276,7 +313,7 @@ namespace MiyouDaily
             {
                 g.Clear(Color.Transparent);g.SmoothingMode=SmoothingMode.AntiAlias;
                 var cursor=PointToClient(Cursor.Position);float lookDistance=WindowLayout.Pixels(200,DeviceDpi);var look=new PointF(Math.Max(-1,Math.Min(1,(cursor.X-Width/2f)/lookDistance)),Math.Max(-1,Math.Min(1,(cursor.Y-Height/2f)/lookDistance)));
-                FairyArt.Eye(g,new RectangleF(8,0,Width-16,Width-16),prefs.Paused?frozen:clock.Elapsed.TotalSeconds,look,panel.IsWorking||activeProgress!=null,lifecycle.Openness);
+                FairyArt.FlareEye(g,new RectangleF(8,0,Width-16,Width-16),prefs.Paused?frozen:clock.Elapsed.TotalSeconds,look,panel.IsWorking||activeProgress!=null,lifecycle.Openness);
                 Present(bmp,(byte)Math.Round(255*lifecycle.Alpha));
             }
         }

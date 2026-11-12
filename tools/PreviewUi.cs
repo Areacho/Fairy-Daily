@@ -69,12 +69,12 @@ class PreviewUi
         using(var bitmap=new Bitmap(880,460))using(var g=Graphics.FromImage(bitmap))
         {
             Theme.HddBackground(g,new Rectangle(Point.Empty,bitmap.Size));
-            float[] poses={.02f,.35f,.8f,1,1,.5f,.1f,.02f};
+            float[] poses={.04f,.22f,.65f,1,1,.65f,.22f,.04f};
             for(int i=0;i<poses.Length;i++)
             {
                 int x=(i%4)*220,y=(i/4)*230;
                 using(var font=AppFonts.Create(12,FontStyle.Bold))UiRendering.Text(g,(i<4?"睁眼":"闭眼")+" · "+(i%4+1),font,new Rectangle(x+12,y+5,196,30),Theme.Text,true);
-                FairyArt.Eye(g,new RectangleF(x+18,y+37,184,184),0,PointF.Empty,false,poses[i]);
+                FairyArt.FlareEye(g,new RectangleF(x+18,y+37,184,184),0,PointF.Empty,false,poses[i]);
             }
             bitmap.Save(path);
         }
