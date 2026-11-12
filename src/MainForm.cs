@@ -46,7 +46,7 @@ namespace MiyouDaily
             DoubleBuffered=true;SetStyle(ControlStyles.ResizeRedraw,true);
             this.store = store; this.settings = settings;
             Text = "FAIRY / 日常事务代理"; Font = AppFonts.Create(10F); ForeColor = Ink; Icon=AppAssets.Icon;
-            BackColor = Theme.Background;Opacity=Theme.PopupOpacity; Size = new Size(1080, 900); MinimumSize = new Size(980, 810);
+            BackColor = Theme.Background;Opacity=1; Size = new Size(1080, 900); MinimumSize = new Size(980, 810);
             StartPosition = FormStartPosition.CenterScreen; AutoScaleDimensions=new SizeF(96,96);AutoScaleMode = AutoScaleMode.Dpi;
             var root = new FairyBackdrop { Dock = DockStyle.Fill, ColumnCount = 1, RowCount = 6, Padding = new Padding(26, 18, 26, 14),AutoScroll=true };
             foreach (var row in new[] { new RowStyle(SizeType.Absolute, 82), new RowStyle(SizeType.Absolute, 142), new RowStyle(SizeType.Absolute, 340), new RowStyle(SizeType.Absolute, 56), new RowStyle(SizeType.Absolute, 32), new RowStyle(SizeType.Percent, 100) }) root.RowStyles.Add(row);

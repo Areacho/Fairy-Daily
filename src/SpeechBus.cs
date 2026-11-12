@@ -8,6 +8,7 @@ namespace MiyouDaily
     {
         public string Id {get;set;} public string Text {get;set;} public string At {get;set;}
         public bool IsCompletion {get;set;}
+        public bool ExitAfterCompletion {get;set;}
     }
     public sealed class ScheduledNotice
     {
@@ -17,9 +18,9 @@ namespace MiyouDaily
     {public string Day {get;set;} public string[] Ids {get;set;}}
     public static class SpeechBus
     {
-        public static FairyMessage Publish(Store store,string text,bool completion=false)
+        public static FairyMessage Publish(Store store,string text,bool completion=false,bool exitAfterCompletion=false)
         {
-            var message=new FairyMessage{Id=Guid.NewGuid().ToString("N"),Text=text,At=DateTimeOffset.UtcNow.ToString("o"),IsCompletion=completion};
+            var message=new FairyMessage{Id=Guid.NewGuid().ToString("N"),Text=text,At=DateTimeOffset.UtcNow.ToString("o"),IsCompletion=completion,ExitAfterCompletion=completion&&exitAfterCompletion};
             Store.AtomicWrite(Path.Combine(store.Root,"speech.json"),Json.Write(message));return message;
         }
         public static FairyMessage Read(Store store)
@@ -29,16 +30,17 @@ namespace MiyouDaily
         }
         public static bool PublishScheduled(Store store,Settings settings,string text)
         {return PublishScheduledMessage(store,settings,text,false)!=null;}
-        public static FairyMessage PublishScheduledMessage(Store store,Settings settings,string text,bool completion)
+        public static FairyMessage PublishScheduledMessage(Store store,Settings settings,string text,bool completion,bool exitAfterCompletion=false)
         {
             string path=Path.Combine(store.Root,"scheduled-notice.json"),day=Clock.Day(Clock.ChinaNow),cookie="";
             if(settings.Games.Length+settings.Forums.Length>0){try{cookie=store.Decrypt(settings);}catch(InvalidOperationException){}}
             string scope=(cookie.Length==0?"logged-out":AccountScope.Prefix(cookie))+string.Join(",",settings.Games.OrderBy(x=>x))+"/"+string.Join(",",settings.Forums.OrderBy(x=>x));
             if(settings.HeyboxEnabled){try{var heybox=HeyboxAccount.Load(settings);scope+="/"+(heybox==null?"heybox-logged-out":heybox.Key);}catch(InvalidOperationException){scope+="/heybox-invalid";}}
+            scope+="/auto-exit="+exitAfterCompletion;
             ScheduledNotice previous=null;
             try{if(File.Exists(path))previous=Json.Read<ScheduledNotice>(File.ReadAllText(path));}catch(ArgumentException){}catch(InvalidOperationException){}
             if(previous!=null&&previous.Day==day&&previous.Scope==scope&&previous.Text==text)return null;
-            var message=Publish(store,text,completion);Store.AtomicWrite(path,Json.Write(new ScheduledNotice{Day=day,Scope=scope,Text=text}));return message;
+            var message=Publish(store,text,completion,exitAfterCompletion);Store.AtomicWrite(path,Json.Write(new ScheduledNotice{Day=day,Scope=scope,Text=text}));return message;
         }
         static NoticeReceipts Receipts(Store store)
         {

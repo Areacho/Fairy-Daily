@@ -108,6 +108,7 @@ namespace MiyouDaily
         public string DeviceId { get; set; }
         public string DeviceFp { get; set; }
         public string DailyTime { get; set; }
+        public bool ExitWidgetAfterCheckin { get; set; }
         public string[] Games { get; set; }
         public string[] Forums { get; set; }
         public string AppVersion { get; set; }

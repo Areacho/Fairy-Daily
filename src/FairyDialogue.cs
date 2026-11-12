@@ -22,6 +22,8 @@ namespace MiyouDaily
         Mode mode;
         int targetHeight=126;
         bool compactGreeting,compactEye;
+        public event Action Dismissed;
+        internal bool KeepNoticeOpen {get;set;}
         double fromHeight,fromOpacity;
         public FairyDialogue(MainForm panel,Action openPanel,Func<System.Threading.Tasks.Task> runCheckin=null)
         {
@@ -43,7 +45,7 @@ namespace MiyouDaily
             RefreshActions();
             motion.Interval=16;motion.Tick+=(s,e)=>Animate();
             idle.Interval=250;idle.Tick+=(s,e)=>{
-                if(!Visible||mode==Mode.Greeting||mode==Mode.Closing||panel.IsWorking||ClientRectangle.Contains(PointToClient(Cursor.Position))){idleClock.Restart();return;}
+                if(!Visible||mode==Mode.Greeting||mode==Mode.Closing||KeepNoticeOpen||panel.IsWorking||ClientRectangle.Contains(PointToClient(Cursor.Position))){idleClock.Restart();return;}
                 if(idleClock.ElapsedMilliseconds>=12000)Dismiss();
             };
             KeyPreview=true;KeyDown+=(s,e)=>idleClock.Restart();
@@ -54,6 +56,11 @@ namespace MiyouDaily
         protected override bool ShowWithoutActivation{get{return true;}}
         protected override CreateParams CreateParams{get{var p=base.CreateParams;p.ExStyle|=0x80;return p;}}
         protected override void OnShown(EventArgs e){base.OnShown(e);LayoutMessage();LayoutActions(mode==Mode.Notice);RoundWindow();Reposition();}
+        protected override void OnFormClosing(FormClosingEventArgs e)
+        {
+            if(e.CloseReason==CloseReason.UserClosing){e.Cancel=true;HideNow();}
+            base.OnFormClosing(e);
+        }
         protected override void OnSizeChanged(EventArgs e)
         {
             base.OnSizeChanged(e);if(IsHandleCreated)RoundWindow();
@@ -87,10 +94,10 @@ namespace MiyouDaily
             RefreshActions();message.Visible=greet;message.Text="";actions.Visible=!greet;LayoutActions(false);
             Begin(greet?Mode.Greeting:Mode.Options,greet?58:116);
         }
-        public void Say(string text)
+        public void Say(string text,bool extended=false)
         {
             RefreshActions();message.Text=text;message.Visible=true;actions.Visible=false;
-            Begin(Mode.Notice,126);
+            Begin(Mode.Notice,extended?164:126);
         }
         void LayoutActions(bool withMessage)
         {
@@ -104,7 +111,7 @@ namespace MiyouDaily
         void LayoutMessage()
         {
             LayoutIcon();float z=DeviceDpi/96f;int left=(int)(24*z);
-            message.SetBounds(left,(int)((compactGreeting?16:30)*z),Math.Max(1,panelIcon.Left-(int)(10*z)-left),(int)((compactGreeting?26:68)*z));
+            message.SetBounds(left,(int)((compactGreeting?16:30)*z),Math.Max(1,panelIcon.Left-(int)(10*z)-left),(int)((compactGreeting?26:Math.Max(68,targetHeight-58))*z));
             message.TextAlign=compactGreeting?ContentAlignment.MiddleCenter:ContentAlignment.TopLeft;
         }
         void LayoutIcon()
@@ -115,11 +122,11 @@ namespace MiyouDaily
         }
         public void Dismiss()
         {
-            if(!Visible)return;fromOpacity=Opacity;mode=Mode.Closing;clock.Restart();idle.Stop();motion.Start();
+            if(!Visible)return;if(Dismissed!=null)Dismissed();fromOpacity=Opacity;mode=Mode.Closing;clock.Restart();idle.Stop();motion.Start();
         }
         public void HideNow()
         {
-            if(IsDisposed)return;motion.Stop();idle.Stop();clock.Reset();idleClock.Reset();Hide();
+            if(IsDisposed)return;if(Dismissed!=null)Dismissed();motion.Stop();idle.Stop();clock.Reset();idleClock.Reset();Hide();
         }
         void Animate()
         {

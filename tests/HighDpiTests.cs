@@ -34,7 +34,7 @@ partial class Tests
         foreach(int dpi in new[]{96,120,144,168,192,240,288})
         {
             var area=new Rectangle(0,0,screen.Width,screen.Height-WindowLayout.Pixels(32,dpi));bool fits=true;
-            foreach(var size in new[]{new Size(1080,900),new Size(860,650),new Size(620,470),new Size(650,448),new Size(328,430),new Size(480,126)})
+            foreach(var size in new[]{new Size(1080,900),new Size(860,650),new Size(620,560),new Size(650,448),new Size(328,430),new Size(480,164),new Size(280,520)})
             {
                 var pixels=WindowLayout.Pixels(size,dpi);var bounds=WindowLayout.FitBounds(new Rectangle(-100,-100,pixels.Width,pixels.Height),area,dpi);
                 fits&=area.Contains(bounds)&&bounds.Width>0&&bounds.Height>0;

@@ -39,7 +39,14 @@ class PreviewUi
                 previewStore.SetCookie(previewSettings,"stuid=10000000; stoken=SYNTHETIC_PREVIEW_TOKEN");bubble.OpenShortcuts(false);bubble.ClientSize=new Size((int)(480*z),(int)(116*z));
                 using(var bitmap=new Bitmap(bubble.Width,bubble.Height)){bubble.DrawToBitmap(bitmap,new Rectangle(Point.Empty,bitmap.Size));bitmap.Save(Path.Combine(output,"shortcuts-logged-in.png"));}previewSettings.ProtectedCookie="";
                 bubble.Say("主人，定时委托已完成。今日的米游社与小黑盒签到已全部确认。");bubble.ClientSize=new Size((int)(480*z),(int)(126*z));
-                using(var bitmap=new Bitmap(bubble.Width,bubble.Height)){bubble.DrawToBitmap(bitmap,new Rectangle(Point.Empty,bitmap.Size));bitmap.Save(Path.Combine(output,"notice.png"));}bubble.Hide();
+                using(var bitmap=new Bitmap(bubble.Width,bubble.Height)){bubble.DrawToBitmap(bitmap,new Rectangle(Point.Empty,bitmap.Size));bitmap.Save(Path.Combine(output,"notice.png"));}
+                bubble.Say("主人，定时委托已完成。今日的米游社与小黑盒签到已全部确认。\n8 秒后退出挂件，点击眼睛或关闭气泡可取消。",true);bubble.ClientSize=new Size((int)(480*z),(int)(164*z));
+                using(var bitmap=new Bitmap(bubble.Width,bubble.Height)){bubble.DrawToBitmap(bitmap,new Rectangle(Point.Empty,bitmap.Size));bitmap.Save(Path.Combine(output,"notice-auto-exit.png"));}bubble.Hide();
+            }
+            using(var widget=new FairyWidget(previewStore,form))
+            {
+                var menu=widget.ContextMenuStrip;menu.Opacity=0;menu.Show(new Point(40,40));menu.PerformLayout();
+                using(var bitmap=new Bitmap(menu.Width,menu.Height)){menu.DrawToBitmap(bitmap,new Rectangle(Point.Empty,bitmap.Size));bitmap.Save(Path.Combine(output,"context-menu.png"));}menu.Close();
             }
         }
         using(var heybox=new HeyboxForm(new Store(Path.Combine(output,"empty-store")),new Settings()))

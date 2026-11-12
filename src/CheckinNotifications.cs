@@ -11,7 +11,7 @@ namespace MiyouDaily
     public static class CheckinNotifications
     {
         public static string WidgetMutexName {get{return "Local\\MiyouDaily-Fairy-"+Environment.UserName;}}
-        public static FairyMessage Publish(Store store,Settings settings,RunSummary result,bool scheduled)
+        public static FairyMessage Publish(Store store,Settings settings,RunSummary result,bool scheduled,Settings completeScope=null)
         {
             if(scheduled&&!Clock.IsDue(settings.DailyTime,Clock.ChinaNow))return null;
             string text=CheckinStatus.CompletionMessage(store,settings,result);
@@ -22,10 +22,12 @@ namespace MiyouDaily
                 {string platform=settings.HeyboxEnabled?(settings.Games.Length+settings.Forums.Length>0?"米游社与小黑盒":"小黑盒"):"米游社";text="主人，定时委托已完成。今日的"+platform+"签到已全部确认。";}
                 else text="主人，定时检查已结束，部分项目尚未确认完成，请查看日志。";
             }
-            return PublishText(store,settings,text,scheduled);
+            var all=completeScope??settings;
+            bool autoExit=all.ExitWidgetAfterCheckin&&result.Failed==0&&CheckinStatus.IsTodayComplete(store,all);
+            return PublishText(store,settings,text,scheduled,autoExit);
         }
-        public static FairyMessage PublishText(Store store,Settings settings,string text,bool scheduled)
-        {return scheduled?SpeechBus.PublishScheduledMessage(store,settings,text,true):SpeechBus.Publish(store,text,true);}
+        public static FairyMessage PublishText(Store store,Settings settings,string text,bool scheduled,bool autoExit=false)
+        {return scheduled?SpeechBus.PublishScheduledMessage(store,settings,text,true,autoExit):SpeechBus.Publish(store,text,true,autoExit);}
         public static bool ShouldReportScheduled(Store store,Settings settings,bool hadWork)
         {return Clock.IsDue(settings.DailyTime,Clock.ChinaNow)&&(hadWork||CheckinStatus.IsTodayComplete(store,settings));}
         public static bool ShouldStartWidget(FairyMessage message,bool widgetRunning)

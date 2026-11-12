@@ -12,22 +12,6 @@ using System.Windows.Forms;
 
 namespace MiyouDaily
 {
-    public sealed class FairyMenuRenderer : ToolStripProfessionalRenderer
-    {
-        public FairyMenuRenderer():base(new FairyMenuColors()){}
-        protected override void OnRenderItemText(ToolStripItemTextRenderEventArgs e){UiRendering.Text(e.Graphics,e.Text,e.TextFont,e.TextRectangle,e.TextColor,false);}
-    }
-    public sealed class FairyMenuColors : ProfessionalColorTable
-    {
-        public override Color ToolStripDropDownBackground { get { return Theme.Surface; } }
-        public override Color ImageMarginGradientBegin { get { return ToolStripDropDownBackground; } }
-        public override Color ImageMarginGradientMiddle { get { return ToolStripDropDownBackground; } }
-        public override Color ImageMarginGradientEnd { get { return ToolStripDropDownBackground; } }
-        public override Color MenuItemSelected { get { return Color.FromArgb(23,61,104); } }
-        public override Color MenuItemBorder { get { return FairyArt.Cyan; } }
-        public override Color MenuBorder { get { return Theme.Edge; } }
-        public override Color CheckBackground { get { return Color.FromArgb(34,86,136); } }
-    }
     public static class FairyArt
     {
         public static readonly Color Lime = Color.FromArgb(221, 248, 64), Cyan = Color.FromArgb(121, 225, 255);
@@ -99,11 +83,15 @@ namespace MiyouDaily
     {
         readonly Store store; readonly MainForm panel; readonly Timer timer=new Timer();
         readonly Stopwatch clock=Stopwatch.StartNew(); readonly NotifyIcon tray;
-        readonly ContextMenuStrip menu=new ContextMenuStrip(); WidgetPreferences prefs;
+        readonly FairyContextMenu menu=new FairyContextMenu(); WidgetPreferences prefs;
         Point anchor, origin; bool dragging, moved; double frozen; string lastSpeech=""; long nextSpeechPoll;
         readonly GreetingSession greeting=new GreetingSession();
         readonly FairyDialogue dialogue; readonly Timer clickDelay=new Timer();
         FairyModuleForm module;bool showingCompletion;
+        readonly Timer exitTimer=new Timer();FairyMessage exitNotice;double exitDeadline;
+        internal const int AutoExitDelaySeconds=8;
+        internal bool AutoExitPending {get{return exitNotice!=null;}}
+        internal double AutoExitDeadline {get{return exitDeadline;}}
         public FairyWidget(Store store, MainForm panel)
         {
             this.store=store;this.panel=panel;
@@ -114,19 +102,23 @@ namespace MiyouDaily
             var area=Screen.PrimaryScreen.WorkingArea;
             float coordinateScale=DeviceDpi/(float)Math.Max(96,prefs.CoordinatesDpi);
             Location=prefs.X==int.MinValue?new Point(area.Right-Width-36,area.Bottom-Height-48):new Point((int)(prefs.X*coordinateScale),(int)(prefs.Y*coordinateScale)); Clamp();
-            menu.Items.Add("打开签到面板",null,(s,e)=>OpenPanel());
-            menu.Items.Add("快捷委托",null,(s,e)=>{dialogue.OpenShortcuts(false);dialogue.ShowFor(this);});
-            menu.Items.Add("定时托管",null,(s,e)=>OpenModule(FairySection.Schedule));
-            menu.Items.Add(new ToolStripSeparator());
-            var top=new ToolStripMenuItem("始终置顶"){Checked=prefs.Topmost,CheckOnClick=true};top.CheckedChanged+=(s,e)=>{TopMost=prefs.Topmost=top.Checked;Save();};menu.Items.Add(top);
-            var pause=new ToolStripMenuItem("暂停动画"){Checked=prefs.Paused,CheckOnClick=true};pause.CheckedChanged+=(s,e)=>{frozen=clock.Elapsed.TotalSeconds;prefs.Paused=pause.Checked;timer.Interval=prefs.Paused?500:33;Save();Render();};menu.Items.Add(pause);
-            var sizes=new ToolStripMenuItem("挂件大小");foreach(int size in new[]{180,250,330}) {int chosen=size;sizes.DropDownItems.Add(size==180?"小":size==250?"标准":"大",null,(s,e)=>{prefs.Size=chosen;ResizeForDpi();Save();Render();});}menu.Items.Add(sizes);
-            menu.Items.Add("收起到托盘",null,(s,e)=>{Hide();dialogue.Hide();timer.Interval=750;});
-            menu.Items.Add("退出挂件",null,(s,e)=>Close());
-            ContextMenuStrip=menu;menu.Font=AppFonts.Create(10);
-            menu.Renderer=new FairyMenuRenderer();menu.ForeColor=Color.FromArgb(236,240,248);
-            foreach(ToolStripItem item in menu.Items){item.Font=menu.Font;item.ForeColor=menu.ForeColor;var sub=item as ToolStripMenuItem;if(sub!=null){sub.DropDown.Font=menu.Font;sub.DropDown.ForeColor=menu.ForeColor;sub.DropDown.Renderer=menu.Renderer;}}
-            dialogue=new FairyDialogue(panel,OpenPanel);dialogue.TopMost=prefs.Topmost;panel.SpeechRequested+=Say;
+            menu.Items.Add(new FairyMenuHeader());
+            var run=new FairyMenuItem("立即签到","check",async(s,e)=>{CancelAutoExit();await panel.RunFromWidget();}){Primary=true};menu.Items.Add(run);
+            menu.Items.Add(new FairyMenuItem("签到配置","config",(s,e)=>OpenModule(FairySection.Checkin)));
+            menu.Items.Add(new FairyMenuItem("定时托管","timer",(s,e)=>OpenModule(FairySection.Schedule)));
+            menu.Items.Add(new FairyMenuItem("快捷委托","shortcuts",(s,e)=>{CancelAutoExit();dialogue.OpenShortcuts(false);dialogue.ShowFor(this);}));
+            menu.Items.Add(new FairyMenuItem("总控制面板","panel",(s,e)=>OpenPanel()));
+            menu.Items.Add(new FairyMenuSeparator());
+            var top=new FairyMenuItem("始终置顶","pin"){Checked=prefs.Topmost,CheckOnClick=true,Hint=prefs.Topmost?"已开启":"已关闭"};top.CheckedChanged+=(s,e)=>{TopMost=prefs.Topmost=top.Checked;top.Hint=top.Checked?"已开启":"已关闭";Save();};menu.Items.Add(top);
+            var pause=new FairyMenuItem("暂停动画","pause"){Checked=prefs.Paused,CheckOnClick=true,Hint=prefs.Paused?"已暂停":"运行中"};pause.CheckedChanged+=(s,e)=>{frozen=clock.Elapsed.TotalSeconds;prefs.Paused=pause.Checked;pause.Hint=pause.Checked?"已暂停":"运行中";timer.Interval=prefs.Paused?500:33;Save();Render();};menu.Items.Add(pause);
+            var sizes=new FairyMenuItem("挂件大小","size"){Hint=SizeLabel(prefs.Size)};var sizeMenu=new FairyContextMenu();sizes.DropDown=sizeMenu;
+            foreach(int size in new[]{180,250,330}) {int chosen=size;var item=new FairyMenuItem(SizeLabel(size),"size",(s,e)=>{prefs.Size=chosen;sizes.Hint=SizeLabel(chosen);ResizeForDpi();Save();Render();}){Checked=prefs.Size==size};sizeMenu.Items.Add(item);}
+            sizeMenu.Opening+=(s,e)=>{for(int i=0;i<sizeMenu.Items.Count;i++)((FairyMenuItem)sizeMenu.Items[i]).Checked=prefs.Size==new[]{180,250,330}[i];};menu.Items.Add(sizes);
+            menu.Items.Add(new FairyMenuSeparator());
+            menu.Items.Add(new FairyMenuItem("收起到托盘","tray",(s,e)=>{CancelAutoExit();Hide();dialogue.HideNow();timer.Interval=750;}));
+            menu.Items.Add(new FairyMenuItem("退出挂件","power",(s,e)=>Close()){Danger=true});
+            menu.Opening+=(s,e)=>{CancelAutoExit();run.Enabled=!panel.IsWorking;};ContextMenuStrip=menu;
+            dialogue=new FairyDialogue(panel,OpenPanel);dialogue.TopMost=prefs.Topmost;dialogue.Dismissed+=CancelAutoExit;panel.SpeechRequested+=Say;
             panel.ModuleRequested+=OpenModule;
             panel.DialogueDismissRequested+=HideDialogue;
             panel.CheckinCompleted+=CheckinFinished;
@@ -134,12 +126,13 @@ namespace MiyouDaily
             clickDelay.Interval=SystemInformation.DoubleClickTime;clickDelay.Tick+=(s,e)=>{clickDelay.Stop();if(dialogue.Visible)dialogue.Dismiss();else{dialogue.OpenShortcuts(greeting.Begin());dialogue.ShowFor(this);}};
             LocationChanged+=(s,e)=>{if(dialogue.Visible)dialogue.PlaceNear(this);};
             tray=new NotifyIcon{Icon=AppAssets.Icon,Text="Fairy 日签 · 双击显示挂件",Visible=true,ContextMenuStrip=menu};
-            tray.DoubleClick+=(s,e)=>{Show();timer.Interval=prefs.Paused?500:33;timer.Start();Render();};
-            MouseDown+=(s,e)=>{if(e.Button==MouseButtons.Left){clickDelay.Stop();anchor=Cursor.Position;origin=Location;dragging=true;moved=false;Capture=true;}};
+            tray.DoubleClick+=(s,e)=>{CancelAutoExit();Show();timer.Interval=prefs.Paused?500:33;timer.Start();Render();};
+            MouseDown+=(s,e)=>{CancelAutoExit();if(e.Button==MouseButtons.Left){clickDelay.Stop();anchor=Cursor.Position;origin=Location;dragging=true;moved=false;Capture=true;}};
             MouseMove+=(s,e)=>{if(dragging){var p=Cursor.Position;if(Math.Abs(p.X-anchor.X)>SystemInformation.DragSize.Width/2||Math.Abs(p.Y-anchor.Y)>SystemInformation.DragSize.Height/2)moved=true;if(moved)Location=new Point(origin.X+p.X-anchor.X,origin.Y+p.Y-anchor.Y);}};
             MouseUp+=(s,e)=>{if(dragging){dragging=false;Capture=false;if(moved){Clamp();Save();}else if(e.Button==MouseButtons.Left){clickDelay.Stop();clickDelay.Start();}}};
             MouseDoubleClick+=(s,e)=>{if(e.Button==MouseButtons.Left){clickDelay.Stop();moved=true;dialogue.OpenShortcuts(greeting.Begin());dialogue.ShowFor(this);}};
             timer.Interval=prefs.Paused?500:33;timer.Tick+=(s,e)=>Render();
+            exitTimer.Interval=250;exitTimer.Tick+=(s,e)=>{try{ProcessAutoExit(clock.Elapsed.TotalSeconds,CheckinNotifications.DesktopAvailable());}catch(IOException){CancelAutoExit();}catch(InvalidOperationException){CancelAutoExit();}};
             Shown+=(s,e)=>{ResizeForDpi();Render();timer.Start();Save();};
             DpiChanged+=(s,e)=>{ResizeForDpi();Render();};
             FormClosed+=(s,e)=>{panel.AllowExit=true;panel.Close();};
@@ -147,15 +140,17 @@ namespace MiyouDaily
         }
         protected override void Dispose(bool disposing)
         {
-            if(disposing){timer.Dispose();clickDelay.Dispose();if(module!=null)module.Dispose();if(dialogue!=null)dialogue.Dispose();if(tray!=null){tray.Visible=false;tray.Dispose();}menu.Dispose();if(panel!=null){panel.SpeechRequested-=Say;panel.ModuleRequested-=OpenModule;panel.DialogueDismissRequested-=HideDialogue;panel.CheckinCompleted-=CheckinFinished;}}
+            if(disposing){exitTimer.Dispose();timer.Dispose();clickDelay.Dispose();if(module!=null)module.Dispose();if(dialogue!=null)dialogue.Dispose();if(tray!=null){tray.Visible=false;tray.Dispose();}menu.Dispose();if(panel!=null){panel.SpeechRequested-=Say;panel.ModuleRequested-=OpenModule;panel.DialogueDismissRequested-=HideDialogue;panel.CheckinCompleted-=CheckinFinished;}}
             base.Dispose(disposing);
         }
         public void Say(string message)
         {
             if(IsDisposed)return;if(InvokeRequired){BeginInvoke(new Action<string>(Say),message);return;}
+            CancelAutoExit();
             if(!Visible){Show();timer.Interval=prefs.Paused?500:33;timer.Start();}dialogue.TopMost=TopMost;dialogue.Say(message);dialogue.ShowFor(this);
         }
-        public void OpenPanel(){if(panel.IsDisposed)return;panel.Show();panel.WindowState=FormWindowState.Normal;panel.Activate();panel.Tell("主人，总控制面板已接入。全部委托、账号与运行记录都在这里。");}
+        public void OpenPanel(){CancelAutoExit();if(panel.IsDisposed)return;panel.Show();panel.WindowState=FormWindowState.Normal;panel.Activate();panel.Tell("主人，总控制面板已接入。全部委托、账号与运行记录都在这里。");}
+        static string SizeLabel(int size){return size==180?"小号":size==250?"标准":size==330?"大号":"自定义";}
         void CheckinFinished(FairyMessage notice){DeliverCompletion(notice);}
         internal bool DeliverCompletion(FairyMessage notice,bool? desktopAvailable=null)
         {
@@ -164,8 +159,11 @@ namespace MiyouDaily
             try
             {
                 if(!Visible){Show();timer.Interval=prefs.Paused?500:33;timer.Start();}
-                dialogue.TopMost=true;dialogue.Say(notice.Text);dialogue.ShowFor(this);
-                if(!dialogue.Visible)return false;SpeechBus.MarkDelivered(store,notice);lastSpeech=notice.Id;return true;
+                CancelAutoExit();bool autoExit=panel.ShouldExitAfterCompletion(notice);
+                string text=notice.Text+(autoExit?"\n8 秒后退出挂件，点击眼睛或关闭气泡可取消。":"");
+                dialogue.TopMost=true;dialogue.Say(text,autoExit);dialogue.ShowFor(this);
+                if(!dialogue.Visible)return false;SpeechBus.MarkDelivered(store,notice);lastSpeech=notice.Id;
+                if(autoExit){dialogue.KeepNoticeOpen=true;exitNotice=notice;exitDeadline=clock.Elapsed.TotalSeconds+AutoExitDelaySeconds;exitTimer.Start();}return true;
             }
             finally{showingCompletion=false;}
         }
@@ -176,9 +174,21 @@ namespace MiyouDaily
             if(speech.Id==lastSpeech)return;lastSpeech=speech.Id;DateTimeOffset at;
             if(DateTimeOffset.TryParse(speech.At,out at)&&DateTimeOffset.UtcNow-at<TimeSpan.FromMinutes(2))Say(speech.Text);
         }
-        void HideDialogue(){clickDelay.Stop();dialogue.HideNow();}
+        internal void CancelAutoExit(){exitTimer.Stop();exitNotice=null;exitDeadline=0;if(dialogue!=null)dialogue.KeepNoticeOpen=false;}
+        internal bool ProcessAutoExit(double now,bool desktopAvailable)
+        {
+            if(!AutoExitPending||IsDisposed)return false;
+            if(!panel.ShouldExitAfterCompletion(exitNotice)){CancelAutoExit();return false;}
+            if(!desktopAvailable||panel.IsWorking){exitDeadline=now+AutoExitDelaySeconds;return false;}
+            if(now<exitDeadline)return false;
+            // A separate scheduled worker may still own the account run lock.
+            IDisposable lease;try{lease=store.AcquireRunLock();}catch(InvalidOperationException){exitDeadline=now+AutoExitDelaySeconds;return false;}
+            using(lease){if(!panel.ShouldExitAfterCompletion(exitNotice)){CancelAutoExit();return false;}CancelAutoExit();Close();return true;}
+        }
+        void HideDialogue(){CancelAutoExit();clickDelay.Stop();dialogue.HideNow();}
         public void OpenModule(FairySection section)
         {
+            CancelAutoExit();
             if(panel.IsWorking){Say("主人，上一项委托还在处理，请稍候。");return;}
             if(module==null||module.IsDisposed){module=new FairyModuleForm(panel,section);module.Show(this);}else{module.Navigate(section,false);module.Show();}
             module.Activate();string text=section==FairySection.Schedule?"主人，定时通道已展开。请设定您希望我开始工作的时间。":section==FairySection.Login?"主人，登录通道已就绪。请选择米游社或小黑盒完成授权。":"主人，签到通道已接入。选择平台，Fairy 随时待命。";Say(text);

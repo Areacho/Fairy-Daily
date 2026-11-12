@@ -13,7 +13,7 @@ namespace MiyouDaily
         public event Action<FairyMessage> CheckinCompleted;
         internal string ReportCompletion(Settings selected,RunSummary result)
         {
-            var notice=CheckinNotifications.Publish(store,selected,result,false);
+            var notice=CheckinNotifications.Publish(store,selected,result,false,settings);
             if(CheckinCompleted!=null)CheckinCompleted(notice);else Speak(notice.Text);return notice.Text;
         }
         int dialogueVersion;
@@ -21,6 +21,12 @@ namespace MiyouDaily
         internal bool HasMiyouLogin {get{try{return store.Decrypt(settings).Length>0;}catch(InvalidOperationException){return false;}}}
         internal bool HasHeyboxLogin {get{try{return HeyboxAccount.Load(settings)!=null;}catch(InvalidOperationException){return false;}}}
         internal Settings ModuleSettings {get{CaptureSelection();return Json.Read<Settings>(Json.Write(settings));}}
+        internal bool ShouldExitAfterCompletion(FairyMessage notice)
+        {
+            DateTimeOffset at;
+            return notice!=null&&notice.IsCompletion&&notice.ExitAfterCompletion&&settings.ExitWidgetAfterCheckin&&
+                DateTimeOffset.TryParse(notice.At,out at)&&Clock.Day(at)==Clock.Day(Clock.ChinaNow)&&CheckinStatus.IsTodayComplete(store,settings);
+        }
         public void RequestModule(FairySection section){if(ModuleRequested!=null)ModuleRequested(section);}
         public void Tell(string text){Speak(text);}
         internal string AccountDescription(FairyPlatform platform)
@@ -49,6 +55,13 @@ namespace MiyouDaily
         {var next=ModuleSettings;next.HeyboxEnabled=enabled;ApplyModuleSettings(next,enabled?"主人，小黑盒已加入每日委托。执行时间与定时设定保持一致。":"主人，小黑盒每日委托已暂停，需要时再交给我。");}
         internal void SaveModuleTime(string value)
         {var next=ModuleSettings;next.DailyTime=value;ApplyModuleSettings(next,"主人，时间坐标已确认：每天北京时间 "+value+"。");}
+        internal void SetModuleAutoExit(bool enabled)
+        {
+            if(IsWorking)throw new InvalidOperationException("当前委托正在执行，请稍后再调整设定。");
+            var next=ModuleSettings;next.ExitWidgetAfterCheckin=enabled;next.Validate();store.Save(next);settings=next;
+            string response=enabled?"主人，全部签到完成后，我会先通知您，8 秒后退出挂件。每日定时仍会照常执行。":"主人，签到完成后我会继续待命，挂件不会自动退出。";
+            Write(response);Tell(response);
+        }
         internal void InstallModuleSchedule(string value)
         {
             var next=ModuleSettings;next.DailyTime=value;
