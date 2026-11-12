@@ -51,6 +51,7 @@ namespace MiyouDaily
             var root = new FairyBackdrop { Dock = DockStyle.Fill, ColumnCount = 1, RowCount = 6, Padding = new Padding(26, 18, 26, 14),AutoScroll=true };
             foreach (var row in new[] { new RowStyle(SizeType.Absolute, 82), new RowStyle(SizeType.Absolute, 142), new RowStyle(SizeType.Absolute, 340), new RowStyle(SizeType.Absolute, 56), new RowStyle(SizeType.Absolute, 32), new RowStyle(SizeType.Percent, 100) }) root.RowStyles.Add(row);
             Controls.Add(root);
+            ScrollbarTheme.Attach(root);
             var heading = new FairyHeader();
             root.Controls.Add(heading, 0, 0);
 
@@ -103,6 +104,7 @@ namespace MiyouDaily
             root.Controls.Add(buttons, 0, 3);
             schedule.BackColor=Color.Transparent; schedule.AutoSize = true; schedule.ForeColor = Accent; schedule.Padding = new Padding(0, 6, 0, 0); root.Controls.Add(schedule, 0, 4);
             log.Dock = DockStyle.Fill; log.ReadOnly = true; log.BorderStyle = BorderStyle.None; log.BackColor = Theme.Surface; log.ForeColor = Theme.Muted; log.Font = AppFonts.Chinese(9.5F);
+            ScrollbarTheme.Attach(log);
             var logCard=new RoundedPanel{Dock=DockStyle.Fill,Padding=new Padding(18,40,18,14)};logCard.Controls.Add(log);logCard.Paint+=(s,e)=>{using(var f=AppFonts.Create(10,FontStyle.Bold))UiRendering.Text(e.Graphics,"03   执行记录  /  ACTIVITY LOG",f,new Rectangle((int)(18*logCard.DeviceDpi/96f),(int)(10*logCard.DeviceDpi/96f),(int)(500*logCard.DeviceDpi/96f),(int)(24*logCard.DeviceDpi/96f)),Theme.Muted,false);};log.DetectUrls = false; root.Controls.Add(logCard, 0, 5);
             time.Value = DateTime.Today + Clock.ParseTime(settings.DailyTime);
             RefreshStatus();

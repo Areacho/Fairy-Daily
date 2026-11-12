@@ -72,7 +72,7 @@ namespace MiyouDaily
     }
     public sealed class FairyMenuHeader : ToolStripLabel
     {
-        public FairyMenuHeader():base("FAIRY · H.D.D."){Enabled=false;AccessibleName="Fairy 桌面事务控制";}
+        public FairyMenuHeader():base("FAIRY"){Enabled=false;AccessibleName="Fairy 桌面事务控制";}
         public override Size GetPreferredSize(Size constraintSize)
         {float z=(Owner==null?96:Owner.DeviceDpi)/96f;return new Size((int)(264*z),(int)(64*z));}
         internal void Arrange(Rectangle bounds){SetBounds(bounds);}
@@ -109,7 +109,7 @@ namespace MiyouDaily
             if(e.Item is FairyMenuHeader)
             {
                 FairyArt.Eye(g,new RectangleF(5*z,4*z,48*z,48*z),0,PointF.Empty,false);
-                using(var font=AppFonts.Create(12,FontStyle.Bold))UiRendering.Text(g,"FAIRY · H.D.D.",font,new Rectangle((int)(58*z),(int)(6*z),(int)(202*z),(int)(25*z)),Theme.Text,false);
+                using(var font=AppFonts.Create(12,FontStyle.Bold))UiRendering.Text(g,"FAIRY",font,new Rectangle((int)(58*z),(int)(6*z),(int)(202*z),(int)(25*z)),Theme.Text,false);
                 using(var font=AppFonts.Create(8.5f))UiRendering.Text(g,"桌面事务控制 / DAILY COMMISSION",font,new Rectangle((int)(58*z),(int)(33*z),(int)(204*z),(int)(21*z)),Theme.Muted,false);
                 return;
             }

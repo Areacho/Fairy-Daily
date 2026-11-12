@@ -64,12 +64,9 @@ namespace MiyouDaily
             var g=e.Graphics;UiRendering.Quality(g);float z=DeviceDpi/96f;
             using(var f=AppFonts.Create(34,FontStyle.Bold))UiRendering.Text(g,"FAIRY",f,new Rectangle(0,0,(int)(180*z),(int)(62*z)),Theme.Text,false);
             using(var f=AppFonts.Create(8.5f))UiRendering.Text(g,"日常事务代理  /  DAILY COMMISSION",f,new Rectangle((int)(2*z),(int)(59*z),(int)(450*z),(int)(20*z)),Theme.Muted,false);
-            float badgeX=190*z;
-            Theme.FillRound(g,new RectangleF(badgeX,13*z,100*z,27*z),4*z,Theme.Lime,Color.Black);
-            using(var f=AppFonts.Create(10,FontStyle.Bold))UiRendering.Text(g,"H.D.D.",f,new Rectangle((int)badgeX,(int)(13*z),(int)(100*z),(int)(27*z)),Theme.Background,true);
             using(var p=new Pen(Color.FromArgb(90,Theme.Cyan)))g.DrawLine(p,Width-174*z,18*z,Width-12*z,18*z);
             using(var f=AppFonts.Create(9))UiRendering.Text(g,"委托已接入 · 剩下的交给 Fairy",f,new Rectangle((int)(Width-285*z),(int)(40*z),(int)(285*z),(int)(24*z)),Theme.Muted,false);
-            using(var p=new Pen(Theme.Edge))g.DrawLine(p,315*z,26*z,Width-198*z,26*z);
+            using(var p=new Pen(Theme.Edge))g.DrawLine(p,200*z,26*z,Width-198*z,26*z);
         }
     }
     public sealed class WidgetPreferences

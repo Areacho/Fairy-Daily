@@ -34,6 +34,7 @@ namespace MiyouDaily
             heading.Font=AppFonts.Create(19,FontStyle.Bold);heading.BackColor=Color.Transparent;heading.ForeColor=Theme.Text;heading.Location=new Point(84,5);heading.Size=new Size(520,43);header.Controls.Add(heading);root.Controls.Add(header,0,0);
             description.Dock=DockStyle.Fill;description.BackColor=Color.Transparent;description.ForeColor=Theme.Muted;root.Controls.Add(description,0,1);
             body.Dock=DockStyle.Fill;body.BackColor=Color.Transparent;body.ColumnCount=1;body.ColumnStyles.Add(new ColumnStyle(SizeType.Percent,100));body.AutoScroll=true;root.Controls.Add(body,0,2);
+            ScrollbarTheme.Attach(body);
             FormClosing+=(s,e)=>lifetime.Cancel();FormClosed+=(s,e)=>panel.DismissPageDialogue();Navigate(section,false);
             DpiChanged+=(s,e)=>BeginInvoke(new Action(()=>{UpdateHeader();UpdateScrollMetrics();}));WindowLayout.Watch(this,MinimumLogical);
             ResumeLayout(true);
@@ -85,6 +86,7 @@ namespace MiyouDaily
             section=target;SuspendLayout();
             var host=(TableLayoutPanel)body.Parent;host.SuspendLayout();host.Controls.Remove(body);body.Dispose();
             body=new BufferedTableLayout{Dock=DockStyle.Fill,BackColor=Color.Transparent,ColumnCount=1,RowCount=0,AutoScroll=true};body.ColumnStyles.Add(new ColumnStyle(SizeType.Percent,100));host.Controls.Add(body,0,2);body.SuspendLayout();buttons.Clear();
+            ScrollbarTheme.Attach(body);
             float z=LayoutScale;Size size;
             switch(target){case FairySection.MiyouTasks:size=new Size(860,650);break;case FairySection.HeyboxTasks:size=new Size(600,460);break;case FairySection.MiyouOptions:size=new Size(740,600);break;case FairySection.HeyboxOptions:size=new Size(560,360);break;case FairySection.Schedule:size=new Size(620,560);break;case FairySection.Login:case FairySection.Checkin:size=new Size(580,310);break;case FairySection.MiyouAccount:case FairySection.HeyboxAccount:size=new Size(600,340);break;default:size=new Size(600,370);break;}
             MinimumSize=new Size((int)((target==FairySection.MiyouTasks?820:520)*z),(int)((target==FairySection.MiyouTasks?600:280)*z));

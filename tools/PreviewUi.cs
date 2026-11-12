@@ -48,6 +48,7 @@ class PreviewUi
                 var menu=widget.ContextMenuStrip;menu.Opacity=0;menu.Show(new Point(40,40));menu.PerformLayout();
                 using(var bitmap=new Bitmap(menu.Width,menu.Height)){menu.DrawToBitmap(bitmap,new Rectangle(Point.Empty,bitmap.Size));bitmap.Save(Path.Combine(output,"context-menu.png"));}menu.Close();
             }
+            RenderScrollbars(form,Path.Combine(output,"dashboard-scrollbars.png"));
         }
         using(var heybox=new HeyboxForm(new Store(Path.Combine(output,"empty-store")),new Settings()))
         {
@@ -69,6 +70,19 @@ class PreviewUi
         using(var bitmap=new Bitmap(size.Width,size.Height))
         {root.DrawToBitmap(bitmap,new Rectangle(Point.Empty,size));bitmap.Save(path);}
         form.Controls.Add(root);root.Dock=DockStyle.Fill;
+    }
+    static void RenderScrollbars(MainForm form,string path)
+    {
+        form.Opacity=0;form.Size=WindowLayout.Pixels(new Size(980,810),form.DeviceDpi);form.Show();Application.DoEvents();
+        var root=(ScrollableControl)form.Controls[0];var log=FindLog(root);
+        log.Text="";for(int i=1;i<=100;i++)log.AppendText("09:00:00  Fairy 离线界面预览 · 委托记录 "+i+Environment.NewLine);
+        root.AutoScrollMinSize=WindowLayout.Pixels(new Size(940,980),form.DeviceDpi);root.PerformLayout();
+        root.AutoScrollPosition=new Point(0,WindowLayout.Pixels(140,form.DeviceDpi));Application.DoEvents();
+        using(var bitmap=new Bitmap(root.Width,root.Height)){root.DrawToBitmap(bitmap,new Rectangle(Point.Empty,bitmap.Size));bitmap.Save(path);}form.Hide();
+    }
+    static RichTextBox FindLog(Control parent)
+    {
+        foreach(Control child in parent.Controls){var log=child as RichTextBox;if(log!=null)return log;log=FindLog(child);if(log!=null)return log;}return null;
     }
     static void CreateHandles(Control control)
     {var handle=control.Handle;foreach(Control child in control.Controls)CreateHandles(child);}
