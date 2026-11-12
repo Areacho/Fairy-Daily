@@ -30,7 +30,7 @@ namespace MiyouDaily
         {
             SuspendLayout();
             this.panel=panel;Text="Fairy · 快捷对话";Icon=AppAssets.Icon;Font=AppFonts.Create(10);
-            FormBorderStyle=FormBorderStyle.None;ShowInTaskbar=false;StartPosition=FormStartPosition.Manual;BackColor=Theme.Surface;DoubleBuffered=true;Opacity=Theme.PopupOpacity;
+            FormBorderStyle=FormBorderStyle.None;ShowInTaskbar=false;StartPosition=FormStartPosition.Manual;BackColor=Theme.Surface;DoubleBuffered=true;Opacity=Theme.PopupOpacity;TopMost=true;
             ClientSize=new Size(480,126);AutoScaleDimensions=new SizeF(96,96);AutoScaleMode=AutoScaleMode.Dpi;
             var close=new RoundButton{Text="×",Size=new Size(29,29),Location=new Point(439,10),Anchor=AnchorStyles.Top|AnchorStyles.Right};close.Click+=(s,e)=>Dismiss();Controls.Add(close);
             message=new SmoothLabel{Location=new Point(24,30),Size=new Size(354,68),ForeColor=Theme.Text,BackColor=Color.Transparent,Font=AppFonts.Create(11,FontStyle.Bold)};Controls.Add(message);
@@ -46,6 +46,7 @@ namespace MiyouDaily
             RefreshActions();
             motion.Interval=16;motion.Tick+=(s,e)=>Animate();
             idle.Interval=250;idle.Tick+=(s,e)=>{
+                MaintainLayer();
                 if(!Visible||mode==Mode.Greeting||mode==Mode.Closing||KeepNoticeOpen||panel.IsWorking||ClientRectangle.Contains(PointToClient(Cursor.Position))){idleClock.Restart();return;}
                 if(idleClock.ElapsedMilliseconds>=12000)Dismiss();
             };
@@ -56,7 +57,7 @@ namespace MiyouDaily
         }
         protected override bool ShowWithoutActivation{get{return true;}}
         protected override CreateParams CreateParams{get{var p=base.CreateParams;p.ExStyle|=0x80;return p;}}
-        protected override void OnShown(EventArgs e){base.OnShown(e);LayoutMessage();LayoutActions(mode==Mode.Notice);RoundWindow();Reposition();}
+        protected override void OnShown(EventArgs e){base.OnShown(e);LayoutMessage();LayoutActions(mode==Mode.Notice);RoundWindow();Reposition();DialogueLayer.Raise(this);}
         protected override void OnFormClosing(FormClosingEventArgs e)
         {
             if(e.CloseReason==CloseReason.UserClosing){e.Cancel=true;HideNow();}
@@ -72,9 +73,10 @@ namespace MiyouDaily
         public void ShowFor(Form owner)
         {
             if(IsDisposed)return;PlaceNear(owner);
-            if(Visible)return;
-            if(owner==null)Show();else Show(owner);
+            if(!Visible){if(owner==null)Show();else Show(owner);}
+            DialogueLayer.Raise(this);
         }
+        internal void MaintainLayer(){if(mode!=Mode.Closing)DialogueLayer.Maintain(this);}
         RoundButton Add(string text,Func<System.Threading.Tasks.Task> action,int column,int row)
         {
             var button=new RoundButton{Text=text,Dock=DockStyle.Fill,Margin=new Padding(4),AccessibleName="Fairy快捷"+text};

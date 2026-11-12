@@ -119,7 +119,7 @@ namespace MiyouDaily
             menu.Items.Add(new FairyMenuItem("收起到托盘","tray",(s,e)=>{CancelAutoExit();Hide();dialogue.HideNow();timer.Interval=750;}));
             menu.Items.Add(new FairyMenuItem("退出挂件","power",(s,e)=>Close()){Danger=true});
             menu.Opening+=(s,e)=>{e.Cancel=IsClosingEye;CancelAutoExit();run.Enabled=!panel.IsWorking;};ContextMenuStrip=menu;
-            dialogue=new FairyDialogue(panel,OpenPanel);dialogue.TopMost=prefs.Topmost;dialogue.Dismissed+=CancelAutoExit;panel.SpeechRequested+=Say;
+            dialogue=new FairyDialogue(panel,OpenPanel);dialogue.Dismissed+=CancelAutoExit;panel.SpeechRequested+=Say;
             panel.ModuleRequested+=OpenModule;
             panel.DialogueDismissRequested+=HideDialogue;
             panel.CheckinCompleted+=CheckinFinished;
@@ -168,7 +168,7 @@ namespace MiyouDaily
         {
             if(IsDisposed||IsClosingEye)return;if(InvokeRequired){BeginInvoke(new Action<string>(Say),message);return;}
             CancelAutoExit();
-            if(!Visible){Show();timer.Interval=prefs.Paused?500:33;timer.Start();}dialogue.TopMost=TopMost;dialogue.Say(message);dialogue.ShowFor(this);
+            if(!Visible){Show();timer.Interval=prefs.Paused?500:33;timer.Start();}dialogue.Say(message);dialogue.ShowFor(this);
         }
         public void OpenPanel(){if(IsClosingEye)return;CancelAutoExit();if(panel.IsDisposed)return;panel.Show();panel.WindowState=FormWindowState.Normal;panel.Activate();panel.Tell("主人，总控制面板已接入。全部委托、账号与运行记录都在这里。");}
         static string SizeLabel(int size){return size==180?"小号":size==250?"标准":size==330?"大号":"自定义";}
@@ -183,7 +183,7 @@ namespace MiyouDaily
                 if(!Visible){Show();timer.Interval=prefs.Paused?500:33;timer.Start();}
                 CancelAutoExit();activeProgress=null;bool autoExit=panel.ShouldExitAfterCompletion(notice);
                 string text=notice.Text+(autoExit?"\n8 秒后退出挂件，点击眼睛或关闭气泡可取消。":"");
-                dialogue.TopMost=true;dialogue.Say(text,autoExit);dialogue.ShowFor(this);
+                dialogue.Say(text,autoExit);dialogue.ShowFor(this);
                 if(!dialogue.Visible)return false;SpeechBus.MarkDelivered(store,notice);lastSpeech=notice.Id;
                 if(autoExit){dialogue.KeepNoticeOpen=true;exitNotice=notice;exitDeadline=clock.Elapsed.TotalSeconds+AutoExitDelaySeconds;exitTimer.Start();}return true;
             }
@@ -209,7 +209,7 @@ namespace MiyouDaily
             showingCompletion=true;
             try
             {
-                Say(notice.Text);dialogue.TopMost=true;dialogue.KeepNoticeOpen=true;
+                Say(notice.Text);dialogue.KeepNoticeOpen=true;
                 if(!dialogue.Visible)return false;
                 activeProgress=notice.RunId;progressShownAt=clock.Elapsed.TotalSeconds;lastSpeech=notice.Id;SpeechBus.MarkDelivered(store,notice);return true;
             }
