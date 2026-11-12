@@ -6,7 +6,7 @@ using System.Windows.Forms;
 
 namespace MiyouDaily
 {
-    public sealed class FairyDialogue : Form
+    public sealed class FairyDialogue : PassiveForm
     {
         readonly Timer motion=new Timer(),idle=new Timer();
         readonly Stopwatch clock=new Stopwatch();
@@ -18,6 +18,7 @@ namespace MiyouDaily
         readonly ToolTip tips=new ToolTip();
         readonly MainForm panel;
         Form anchor;
+        Point? noticeLocation;
         enum Mode{Greeting,Options,Notice,Closing}
         Mode mode;
         int targetHeight=126;
@@ -96,6 +97,7 @@ namespace MiyouDaily
         }
         public void Say(string text,bool extended=false)
         {
+            noticeLocation=null;
             RefreshActions();message.Text=text;message.Visible=true;actions.Visible=false;
             Begin(Mode.Notice,extended?164:126);
         }
@@ -145,13 +147,19 @@ namespace MiyouDaily
             RoundWindow();Reposition();Invalidate(true);
             if(t>=1){motion.Stop();idleClock.Restart();}
         }
-        public void PlaceNear(Form widget){anchor=widget;Reposition();}
+        public void PlaceNear(Form widget){anchor=widget;noticeLocation=null;Reposition();}
         void Reposition()
         {
             if(anchor==null||anchor.IsDisposed)return;
             var area=Screen.FromRectangle(anchor.Bounds).WorkingArea;int gap=WindowLayout.Pixels(6,DeviceDpi),overlap=WindowLayout.Pixels(22,DeviceDpi);
             int left=anchor.Left-Width+overlap;if(left<area.Left+gap)left=anchor.Right-overlap;
-            Location=new Point(Math.Max(area.Left+gap,Math.Min(left,area.Right-Width-gap)),Math.Max(area.Top+gap,Math.Min(anchor.Top+WindowLayout.Pixels(30,DeviceDpi),area.Bottom-Height-gap)));
+            var proposed=new Point(Math.Max(area.Left+gap,Math.Min(left,area.Right-Width-gap)),Math.Max(area.Top+gap,Math.Min(anchor.Top+WindowLayout.Pixels(30,DeviceDpi),area.Bottom-Height-gap)));
+            if(mode==Mode.Notice)
+            {
+                if(!noticeLocation.HasValue)noticeLocation=WindowLayout.PlaceNotice(new Rectangle(proposed,new Size(Width,WindowLayout.Pixels(targetHeight,DeviceDpi))),anchor.Bounds,area,Cursor.Position,DeviceDpi);
+                Location=noticeLocation.Value;
+            }
+            else Location=proposed;
         }
         void RoundWindow(){if(Width<1||Height<1)return;using(var path=Theme.Round(new RectangleF(0,0,Width,Height),24*DeviceDpi/96f)){var old=Region;Region=new Region(path);if(old!=null)old.Dispose();}}
         protected override void OnPaint(PaintEventArgs e)

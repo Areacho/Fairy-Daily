@@ -58,7 +58,9 @@ partial class Tests
         using(var panel=new MainForm(store,settings))using(var widget=new FairyWidget(store,panel))
         {
             widget.DeliverCompletion(CheckinNotifications.Publish(store,settings,new RunSummary(),false),true);
-            Assert(widget.ProcessAutoExit(widget.AutoExitDeadline+1,true)&&widget.IsDisposed&&panel.IsDisposed,"successful completion closes the widget and dashboard after the visible delay");
+            Assert(widget.ProcessAutoExit(widget.AutoExitDeadline+1,true)&&widget.IsClosingEye&&!widget.IsDisposed,"successful completion starts the eye-closing animation after the visible delay");
+            widget.AdvanceLifecycle(1000000);
+            Assert(widget.IsDisposed&&panel.IsDisposed,"automatic exit closes the widget and dashboard after the final animation frame");
         }
     }
     static void ContextMenuChecks()

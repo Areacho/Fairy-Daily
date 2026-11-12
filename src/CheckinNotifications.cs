@@ -11,7 +11,7 @@ namespace MiyouDaily
     public static class CheckinNotifications
     {
         public static string WidgetMutexName {get{return "Local\\MiyouDaily-Fairy-"+Environment.UserName;}}
-        public static FairyMessage Publish(Store store,Settings settings,RunSummary result,bool scheduled,Settings completeScope=null)
+        public static FairyMessage Publish(Store store,Settings settings,RunSummary result,bool scheduled,Settings completeScope=null,string runId=null)
         {
             if(scheduled&&!Clock.IsDue(settings.DailyTime,Clock.ChinaNow))return null;
             string text=CheckinStatus.CompletionMessage(store,settings,result);
@@ -24,14 +24,16 @@ namespace MiyouDaily
             }
             var all=completeScope??settings;
             bool autoExit=all.ExitWidgetAfterCheckin&&result.Failed==0&&CheckinStatus.IsTodayComplete(store,all);
-            return PublishText(store,settings,text,scheduled,autoExit);
+            return PublishText(store,settings,text,scheduled,autoExit,runId);
         }
-        public static FairyMessage PublishText(Store store,Settings settings,string text,bool scheduled,bool autoExit=false)
-        {return scheduled?SpeechBus.PublishScheduledMessage(store,settings,text,true,autoExit):SpeechBus.Publish(store,text,true,autoExit);}
+        public static FairyMessage PublishText(Store store,Settings settings,string text,bool scheduled,bool autoExit=false,string runId=null)
+        {return scheduled?SpeechBus.PublishScheduledMessage(store,settings,text,true,autoExit,runId):SpeechBus.Publish(store,text,true,autoExit,runId);}
+        public static FairyMessage PublishStarted(Store store,bool scheduled)
+        {return SpeechBus.PublishProgress(store,scheduled?"主人，定时委托已启动。Fairy 正在为您核对并执行今日签到。":"主人，签到委托已接收。Fairy 正在核对今日进度，请稍候。");}
         public static bool ShouldReportScheduled(Store store,Settings settings,bool hadWork)
         {return Clock.IsDue(settings.DailyTime,Clock.ChinaNow)&&(hadWork||CheckinStatus.IsTodayComplete(store,settings));}
         public static bool ShouldStartWidget(FairyMessage message,bool widgetRunning)
-        {return message!=null&&message.IsCompletion&&!widgetRunning;}
+        {return message!=null&&(message.IsCompletion||message.IsProgress)&&!widgetRunning;}
         public static void EnsureWidget(Store store,FairyMessage message,string executable)
         {
             bool running=false;try{using(var existing=Mutex.OpenExisting(WidgetMutexName))running=true;}catch(WaitHandleCannotBeOpenedException){}

@@ -38,6 +38,8 @@ class PreviewUi
                 using(var bitmap=new Bitmap(bubble.Width,bubble.Height)){bubble.DrawToBitmap(bitmap,new Rectangle(Point.Empty,bitmap.Size));bitmap.Save(Path.Combine(output,"shortcuts.png"));}
                 previewStore.SetCookie(previewSettings,"stuid=10000000; stoken=SYNTHETIC_PREVIEW_TOKEN");bubble.OpenShortcuts(false);bubble.ClientSize=new Size((int)(480*z),(int)(116*z));
                 using(var bitmap=new Bitmap(bubble.Width,bubble.Height)){bubble.DrawToBitmap(bitmap,new Rectangle(Point.Empty,bitmap.Size));bitmap.Save(Path.Combine(output,"shortcuts-logged-in.png"));}previewSettings.ProtectedCookie="";
+                bubble.Say("主人，定时委托已启动。Fairy 正在为您核对并执行今日签到。");bubble.ClientSize=new Size((int)(480*z),(int)(126*z));
+                using(var bitmap=new Bitmap(bubble.Width,bubble.Height)){bubble.DrawToBitmap(bitmap,new Rectangle(Point.Empty,bitmap.Size));bitmap.Save(Path.Combine(output,"notice-start.png"));}
                 bubble.Say("主人，定时委托已完成。今日的米游社与小黑盒签到已全部确认。");bubble.ClientSize=new Size((int)(480*z),(int)(126*z));
                 using(var bitmap=new Bitmap(bubble.Width,bubble.Height)){bubble.DrawToBitmap(bitmap,new Rectangle(Point.Empty,bitmap.Size));bitmap.Save(Path.Combine(output,"notice.png"));}
                 bubble.Say("主人，定时委托已完成。今日的米游社与小黑盒签到已全部确认。\n8 秒后退出挂件，点击眼睛或关闭气泡可取消。",true);bubble.ClientSize=new Size((int)(480*z),(int)(164*z));
@@ -59,7 +61,23 @@ class PreviewUi
             var handle=qr.Handle;
             Render(qr,qr.Width,qr.Height,Path.Combine(output,"login.png"));
         }
+        RenderEyeMotion(Path.Combine(output,"eye-motion.png"));
         Console.WriteLine(output);
+    }
+    static void RenderEyeMotion(string path)
+    {
+        using(var bitmap=new Bitmap(880,460))using(var g=Graphics.FromImage(bitmap))
+        {
+            Theme.HddBackground(g,new Rectangle(Point.Empty,bitmap.Size));
+            float[] poses={.02f,.35f,.8f,1,1,.5f,.1f,.02f};
+            for(int i=0;i<poses.Length;i++)
+            {
+                int x=(i%4)*220,y=(i/4)*230;
+                using(var font=AppFonts.Create(12,FontStyle.Bold))UiRendering.Text(g,(i<4?"睁眼":"闭眼")+" · "+(i%4+1),font,new Rectangle(x+12,y+5,196,30),Theme.Text,true);
+                FairyArt.Eye(g,new RectangleF(x+18,y+37,184,184),0,PointF.Empty,false,poses[i]);
+            }
+            bitmap.Save(path);
+        }
     }
     static void Render(Form form,int width,int height,string path)
     {

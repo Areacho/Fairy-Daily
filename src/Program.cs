@@ -18,7 +18,7 @@ namespace MiyouDaily
                 { if (stream == null) return null; byte[] bytes = new byte[stream.Length]; int offset = 0, read; while ((read = stream.Read(bytes, offset, bytes.Length - offset)) > 0) offset += read; return Assembly.Load(bytes); }
             };
             bool selfCheck = args.Contains("--self-check");
-            bool headless = args.Contains("--run") || selfCheck; Store store = null;Settings settings=null;
+            bool headless = args.Contains("--run") || selfCheck; Store store = null;Settings settings=null;FairyMessage started=null;
             try
             {
                 if (selfCheck) { QrTools.SelfCheck();foreach(var game in Catalog.Games)AppAssets.Image(game.Key);AppAssets.Image("miyoushe");AppAssets.Image("heybox");if(AppAssets.Icon.Width<1)throw new InvalidDataException("Fairy 图标加载失败。");return 0; }
@@ -31,13 +31,13 @@ namespace MiyouDaily
                         store.Log(CheckinStatus.AlreadyCompleteMessage);var notice=CheckinNotifications.Publish(store,settings,new RunSummary(),false);CheckinNotifications.EnsureWidget(store,notice,Application.ExecutablePath);return 0;
                     }
                     bool announce=!scheduled || SpeechBus.HasDueWork(store,settings,scheduled);
-                    if(announce&&!scheduled)SpeechBus.Publish(store,"主人，签到委托已接收，正在为您处理。");
+                    if(announce){started=CheckinNotifications.PublishStarted(store,scheduled);CheckinNotifications.EnsureWidget(store,started,Application.ExecutablePath);}
                     using (var transport = new Transport())
                     {
                         var result=new Runner(store, transport, null).Run(settings, scheduled, CancellationToken.None).GetAwaiter().GetResult();
                         if(announce||(scheduled&&CheckinNotifications.ShouldReportScheduled(store,settings,false)))
                         {
-                            var notice=CheckinNotifications.Publish(store,settings,result,scheduled);CheckinNotifications.EnsureWidget(store,notice,Application.ExecutablePath);
+                            var notice=CheckinNotifications.Publish(store,settings,result,scheduled,runId:started==null?null:started.RunId);CheckinNotifications.EnsureWidget(store,notice,Application.ExecutablePath);
                         }
                         return result.ExitCode;
                     }
@@ -56,7 +56,7 @@ namespace MiyouDaily
             {
                 string message = ex.Message;
                 if (store != null) { try { message = Store.Redact(message, store.Decrypt(store.Load())); } catch { } try { store.Log("执行失败：" + message); } catch { } }
-                if(headless&&store!=null){try{bool scheduled=args.Contains("--scheduled");string text=scheduled?"主人，定时签到未完成，请查看日志："+message:"主人，签到未完成，请查看日志："+message;var notice=CheckinNotifications.PublishText(store,settings??new Settings(),text,scheduled);CheckinNotifications.EnsureWidget(store,notice,Application.ExecutablePath);}catch{}}
+                if(headless&&store!=null){try{bool scheduled=args.Contains("--scheduled");string text=scheduled?"主人，定时签到未完成，请查看日志："+message:"主人，签到未完成，请查看日志："+message;var notice=CheckinNotifications.PublishText(store,settings??new Settings(),text,scheduled,runId:started==null?null:started.RunId);CheckinNotifications.EnsureWidget(store,notice,Application.ExecutablePath);}catch{}}
                 if (!headless) MessageBox.Show(message, "米游日签", MessageBoxButtons.OK, MessageBoxIcon.Error);
                 return 1;
             }

@@ -23,6 +23,7 @@ namespace MiyouDaily
         public FairySection Section {get{return section;}}
         float LayoutScale {get{return IsHandleCreated?DeviceDpi/96f:1f;}}
         protected override void OnHandleCreated(EventArgs e){base.OnHandleCreated(e);Theme.DarkTitlebar(Handle);}
+        protected override CreateParams CreateParams {get{var p=base.CreateParams;p.ExStyle|=0x02000000;return p;}}
         public FairyModuleForm(MainForm panel,FairySection section)
         {
             SuspendLayout();
@@ -83,9 +84,14 @@ namespace MiyouDaily
         {history.Clear();ShowSection(target,announce);}
         void ShowSection(FairySection target,bool announce)
         {
+            using(var redraw=new WindowRedrawBatch(this))ShowSectionCore(target);
+            if(announce)panel.Tell(description.Text);
+        }
+        void ShowSectionCore(FairySection target)
+        {
             section=target;SuspendLayout();
-            var host=(TableLayoutPanel)body.Parent;host.SuspendLayout();host.Controls.Remove(body);body.Dispose();
-            body=new BufferedTableLayout{Dock=DockStyle.Fill,BackColor=Color.Transparent,ColumnCount=1,RowCount=0,AutoScroll=true};body.ColumnStyles.Add(new ColumnStyle(SizeType.Percent,100));host.Controls.Add(body,0,2);body.SuspendLayout();buttons.Clear();
+            var previous=body;var host=(TableLayoutPanel)previous.Parent;host.SuspendLayout();
+            body=new BufferedTableLayout{Dock=DockStyle.Fill,BackColor=Color.Transparent,ColumnCount=1,RowCount=0,AutoScroll=true};body.ColumnStyles.Add(new ColumnStyle(SizeType.Percent,100));body.SuspendLayout();buttons.Clear();
             ScrollbarTheme.Attach(body);
             float z=LayoutScale;Size size;
             switch(target){case FairySection.MiyouTasks:size=new Size(860,650);break;case FairySection.HeyboxTasks:size=new Size(600,460);break;case FairySection.MiyouOptions:size=new Size(740,600);break;case FairySection.HeyboxOptions:size=new Size(560,360);break;case FairySection.Schedule:size=new Size(620,560);break;case FairySection.Login:case FairySection.Checkin:size=new Size(580,310);break;case FairySection.MiyouAccount:case FairySection.HeyboxAccount:size=new Size(600,340);break;default:size=new Size(600,370);break;}
@@ -119,9 +125,10 @@ namespace MiyouDaily
                 case FairySection.Schedule: BuildSchedule();break;
             }
             body.RowStyles.Add(new RowStyle(SizeType.Percent,100));body.RowCount++;
-            Text="Fairy · "+heading.Text;body.ResumeLayout(true);host.ResumeLayout(true);ResumeLayout(true);body.PerformLayout();
+            host.Controls.Remove(previous);host.Controls.Add(body,0,2);
+            Text="Fairy · "+heading.Text;body.ResumeLayout(false);host.ResumeLayout(true);ResumeLayout(true);body.PerformLayout();
             if(Visible)WindowLayout.Fit(this,MinimumLogical());
-            if(announce)panel.Tell(description.Text);
+            previous.Dispose();
         }
         void BuildTasks(FairyPlatform platform)
         {
@@ -176,7 +183,7 @@ namespace MiyouDaily
             heading.Text="定时托管  /  TIMER";description.Text="主人，设定每日时间，准点执行交给 Fairy。";
             var config=panel.ModuleSettings;var clock=new DigitalTimePicker{Value=DateTime.Today+Clock.ParseTime(config.DailyTime)};Row(clock,166);
             Status("点击时 / 分输入数字 · 方向键或滚轮调整",34);
-            var status=Status(Scheduler.Exists()?"● 每日定时已开启 · "+config.DailyTime:"○ 每日定时尚未开启",36);
+            var status=Status(panel.HasDailySchedule?"● 每日定时已开启 · "+config.DailyTime:"○ 每日定时尚未开启",36);
             var startup=new ToggleButton{Text="登录 Windows 后启动 Fairy",AccessibleName="定时页开机自启",Checked=StartupManager.IsEnabled()};Row(startup,42);
             bool syncing=false;startup.CheckedChanged+=(s,e)=>{if(syncing)return;try{panel.SetModuleStartup(startup.Checked);}catch(Exception ex){panel.Tell("主人，自启设置需要处理："+ex.Message);}finally{syncing=true;startup.Checked=StartupManager.IsEnabled();syncing=false;}};
             var autoExit=new ToggleButton{Text="全部签到完成后自动退出挂件",AccessibleName="签到完成后自动退出挂件",Checked=config.ExitWidgetAfterCheckin};Row(autoExit,42);

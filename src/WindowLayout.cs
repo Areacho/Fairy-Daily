@@ -19,6 +19,17 @@ namespace MiyouDaily
             int left=Math.Max(available.Left,Math.Min(proposed.Left,available.Right-width)),top=Math.Max(available.Top,Math.Min(proposed.Top,available.Bottom-height));
             return new Rectangle(left,top,width,height);
         }
+        internal static Point PlaceNotice(Rectangle proposed,Rectangle anchor,Rectangle area,Point cursor,int dpi)
+        {
+            int gap=Pixels(12,dpi);
+            var points=new[]{proposed.Location,new Point(anchor.Right+gap,proposed.Top),new Point(proposed.Left,anchor.Top-proposed.Height-gap),new Point(proposed.Left,anchor.Bottom+gap),new Point(area.Left+gap,area.Top+gap),new Point(area.Right-proposed.Width-gap,area.Top+gap),new Point(area.Left+gap,area.Bottom-proposed.Height-gap),new Point(area.Right-proposed.Width-gap,area.Bottom-proposed.Height-gap)};
+            foreach(var point in points)
+            {
+                var candidate=FitBounds(new Rectangle(point,proposed.Size),area,dpi);
+                if(!Rectangle.Inflate(candidate,gap,gap).Contains(cursor))return candidate.Location;
+            }
+            return FitBounds(proposed,area,dpi).Location;
+        }
         public static void Fit(Form form,Size minimumLogical)
         {
             if(form.IsDisposed||!form.IsHandleCreated)return;

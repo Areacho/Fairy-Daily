@@ -28,6 +28,8 @@ namespace MiyouDaily
         public void ConfirmFromWidget(){try{Save();Speak("主人，设定已确认。签到时间为每天北京时间 "+settings.DailyTime+"。");}catch(Exception ex){ShowError(ex);}}
         CancellationTokenSource operation;
         bool closing,updatingStartup;
+        bool dailyScheduleInstalled;
+        internal bool HasDailySchedule {get{return dailyScheduleInstalled;}}
         public bool AllowExit { get; set; }
         public bool IsWorking { get { return operation != null; } }
         internal bool HasLogin {get{return HasMiyouLogin||HasHeyboxLogin;}}
@@ -207,7 +209,7 @@ namespace MiyouDaily
             account.Text = raw.Length == 0 ? "尚未登录 · 推荐扫码登录" : "已登录 · UID " + uid;
             try{var config=HeyboxAccount.Load(settings);heyboxAccount.Text=config==null?"尚未登录 · 支持短信登录":"已登录 · 盒友 ID "+config.session.heybox_id;}
             catch(InvalidOperationException){heyboxAccount.Text="登录状态需要更新，请重新登录";}
-            bool installed = Scheduler.Exists();
+            bool installed = Scheduler.Exists();dailyScheduleInstalled=installed;
             schedule.Text = installed ? "● 每日定时已开启 · 北京时间 " + settings.DailyTime + " · 开机联网并保持 Windows 登录，锁屏可执行" : "○ 每日定时尚未开启 · 可先手动签到测试";
         }
         void SetBusy(bool value)

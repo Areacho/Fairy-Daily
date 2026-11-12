@@ -9,6 +9,8 @@ namespace MiyouDaily
         public string Id {get;set;} public string Text {get;set;} public string At {get;set;}
         public bool IsCompletion {get;set;}
         public bool ExitAfterCompletion {get;set;}
+        public bool IsProgress {get;set;}
+        public string RunId {get;set;}
     }
     public sealed class ScheduledNotice
     {
@@ -18,10 +20,20 @@ namespace MiyouDaily
     {public string Day {get;set;} public string[] Ids {get;set;}}
     public static class SpeechBus
     {
-        public static FairyMessage Publish(Store store,string text,bool completion=false,bool exitAfterCompletion=false)
+        public static FairyMessage Publish(Store store,string text,bool completion=false,bool exitAfterCompletion=false,string runId=null)
         {
-            var message=new FairyMessage{Id=Guid.NewGuid().ToString("N"),Text=text,At=DateTimeOffset.UtcNow.ToString("o"),IsCompletion=completion,ExitAfterCompletion=completion&&exitAfterCompletion};
+            var message=new FairyMessage{Id=Guid.NewGuid().ToString("N"),Text=text,At=DateTimeOffset.UtcNow.ToString("o"),IsCompletion=completion,ExitAfterCompletion=completion&&exitAfterCompletion,RunId=runId};
             Store.AtomicWrite(Path.Combine(store.Root,"speech.json"),Json.Write(message));return message;
+        }
+        public static FairyMessage PublishProgress(Store store,string text)
+        {
+            string id=Guid.NewGuid().ToString("N");
+            var message=new FairyMessage{Id=id,RunId=id,Text=text,At=DateTimeOffset.UtcNow.ToString("o"),IsProgress=true};
+            string json=Json.Write(message);Store.AtomicWrite(Path.Combine(store.Root,"speech-progress.json"),json);Store.AtomicWrite(Path.Combine(store.Root,"speech.json"),json);return message;
+        }
+        public static FairyMessage ReadProgress(Store store)
+        {
+            string path=Path.Combine(store.Root,"speech-progress.json");return File.Exists(path)?Json.Read<FairyMessage>(File.ReadAllText(path)):null;
         }
         public static FairyMessage Read(Store store)
         {
@@ -30,7 +42,7 @@ namespace MiyouDaily
         }
         public static bool PublishScheduled(Store store,Settings settings,string text)
         {return PublishScheduledMessage(store,settings,text,false)!=null;}
-        public static FairyMessage PublishScheduledMessage(Store store,Settings settings,string text,bool completion,bool exitAfterCompletion=false)
+        public static FairyMessage PublishScheduledMessage(Store store,Settings settings,string text,bool completion,bool exitAfterCompletion=false,string runId=null)
         {
             string path=Path.Combine(store.Root,"scheduled-notice.json"),day=Clock.Day(Clock.ChinaNow),cookie="";
             if(settings.Games.Length+settings.Forums.Length>0){try{cookie=store.Decrypt(settings);}catch(InvalidOperationException){}}
@@ -39,8 +51,8 @@ namespace MiyouDaily
             scope+="/auto-exit="+exitAfterCompletion;
             ScheduledNotice previous=null;
             try{if(File.Exists(path))previous=Json.Read<ScheduledNotice>(File.ReadAllText(path));}catch(ArgumentException){}catch(InvalidOperationException){}
-            if(previous!=null&&previous.Day==day&&previous.Scope==scope&&previous.Text==text)return null;
-            var message=Publish(store,text,completion,exitAfterCompletion);Store.AtomicWrite(path,Json.Write(new ScheduledNotice{Day=day,Scope=scope,Text=text}));return message;
+            if(previous!=null&&previous.Day==day&&previous.Scope==scope&&previous.Text==text&&string.IsNullOrEmpty(runId))return null;
+            var message=Publish(store,text,completion,exitAfterCompletion,runId);Store.AtomicWrite(path,Json.Write(new ScheduledNotice{Day=day,Scope=scope,Text=text}));return message;
         }
         static NoticeReceipts Receipts(Store store)
         {
@@ -53,9 +65,15 @@ namespace MiyouDaily
             DateTimeOffset at;if(message==null||!message.IsCompletion||string.IsNullOrEmpty(message.Id)||!DateTimeOffset.TryParse(message.At,out at)||Clock.Day(at)!=Clock.Day(now)||at>now.AddMinutes(5))return false;
             var receipts=Receipts(store);return receipts.Day!=Clock.Day(now)||receipts.Ids==null||!receipts.Ids.Contains(message.Id);
         }
+        public static bool IsProgressPending(Store store,FairyMessage message,DateTimeOffset now)
+        {
+            DateTimeOffset at;
+            if(message==null||!message.IsProgress||string.IsNullOrEmpty(message.Id)||!DateTimeOffset.TryParse(message.At,out at)||Clock.Day(at)!=Clock.Day(now)||now-at>TimeSpan.FromMinutes(2)||at>now.AddSeconds(5))return false;
+            var receipts=Receipts(store);return receipts.Day!=Clock.Day(now)||receipts.Ids==null||!receipts.Ids.Contains(message.Id);
+        }
         public static void MarkDelivered(Store store,FairyMessage message)
         {
-            if(message==null||!message.IsCompletion)return;string day=Clock.Day(Clock.ChinaNow);var receipts=Receipts(store);
+            if(message==null||(!message.IsCompletion&&!message.IsProgress))return;string day=Clock.Day(Clock.ChinaNow);var receipts=Receipts(store);
             var ids=receipts.Day==day&&receipts.Ids!=null?receipts.Ids:new string[0];
             Store.AtomicWrite(Path.Combine(store.Root,"speech-receipts.json"),Json.Write(new NoticeReceipts{Day=day,Ids=ids.Concat(new[]{message.Id}).Distinct().Reverse().Take(64).Reverse().ToArray()}));
         }
