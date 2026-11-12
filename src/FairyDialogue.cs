@@ -13,7 +13,7 @@ namespace MiyouDaily
         readonly Stopwatch idleClock=new Stopwatch();
         readonly Label message;
         readonly TableLayoutPanel actions;
-        readonly RoundButton loginAction,checkinAction,timerAction;
+        readonly RoundButton loginAction,checkinAction,configAction,timerAction;
         readonly FairyPanelButton panelIcon;
         readonly ToolTip tips=new ToolTip();
         readonly MainForm panel;
@@ -23,7 +23,7 @@ namespace MiyouDaily
         int targetHeight=126;
         bool compactGreeting,compactEye;
         double fromHeight,fromOpacity;
-        public FairyDialogue(MainForm panel,Action openPanel)
+        public FairyDialogue(MainForm panel,Action openPanel,Func<System.Threading.Tasks.Task> runCheckin=null)
         {
             SuspendLayout();
             this.panel=panel;Text="Fairy · 快捷对话";Icon=AppAssets.Icon;Font=AppFonts.Create(10);
@@ -31,12 +31,14 @@ namespace MiyouDaily
             ClientSize=new Size(480,126);AutoScaleDimensions=new SizeF(96,96);AutoScaleMode=AutoScaleMode.Dpi;
             var close=new RoundButton{Text="×",Size=new Size(29,29),Location=new Point(439,10),Anchor=AnchorStyles.Top|AnchorStyles.Right};close.Click+=(s,e)=>Dismiss();Controls.Add(close);
             message=new SmoothLabel{Location=new Point(24,30),Size=new Size(354,68),ForeColor=Theme.Text,BackColor=Color.Transparent,Font=AppFonts.Create(11,FontStyle.Bold)};Controls.Add(message);
-            actions=new TableLayoutPanel{ColumnCount=2,RowCount=2,Location=new Point(22,14),Size=new Size(356,88),BackColor=Color.Transparent};
-            actions.ColumnStyles.Add(new ColumnStyle(SizeType.Percent,100));actions.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute,78));
+            actions=new TableLayoutPanel{ColumnCount=3,RowCount=2,Location=new Point(22,14),Size=new Size(356,88),BackColor=Color.Transparent};
+            actions.ColumnStyles.Add(new ColumnStyle(SizeType.Percent,100));actions.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute,70));actions.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute,70));
             actions.RowStyles.Add(new RowStyle(SizeType.Percent,50));actions.RowStyles.Add(new RowStyle(SizeType.Percent,50));Controls.Add(actions);
-            loginAction=Add("登录",()=>{Dismiss();panel.RequestModule(FairySection.Login);return System.Threading.Tasks.Task.FromResult(0);},0,0);actions.SetColumnSpan(loginAction,2);
-            checkinAction=Add("签到",()=>{Dismiss();panel.RequestModule(FairySection.Checkin);return System.Threading.Tasks.Task.FromResult(0);},0,1);checkinAction.Primary=true;
-            timerAction=Add("定时",()=>{Dismiss();panel.RequestModule(FairySection.Schedule);return System.Threading.Tasks.Task.FromResult(0);},1,1);timerAction.Font=AppFonts.Create(9,FontStyle.Bold);
+            loginAction=Add("登录",()=>{Dismiss();panel.RequestModule(FairySection.Login);return System.Threading.Tasks.Task.FromResult(0);},0,0);actions.SetColumnSpan(loginAction,3);
+            var execute=runCheckin??new Func<System.Threading.Tasks.Task>(panel.RunFromWidget);
+            checkinAction=Add("签到",async()=>{Dismiss();await execute();},0,1);checkinAction.Primary=true;
+            configAction=Add("配置",()=>{Dismiss();panel.RequestModule(FairySection.Checkin);return System.Threading.Tasks.Task.FromResult(0);},1,1);configAction.Font=AppFonts.Create(9,FontStyle.Bold);
+            timerAction=Add("定时",()=>{Dismiss();panel.RequestModule(FairySection.Schedule);return System.Threading.Tasks.Task.FromResult(0);},2,1);timerAction.Font=AppFonts.Create(9,FontStyle.Bold);
             panelIcon=new FairyPanelButton();panelIcon.Click+=(s,e)=>{Dismiss();openPanel();};tips.SetToolTip(panelIcon,"打开总控制面板");Controls.Add(panelIcon);
             RefreshActions();
             motion.Interval=16;motion.Tick+=(s,e)=>Animate();
@@ -95,8 +97,8 @@ namespace MiyouDaily
             float z=DeviceDpi/96f;
             int left=(int)(22*z);
             int right=withMessage?ClientSize.Width-left:panelIcon.Left-(int)(10*z);
-            actions.ColumnStyles[1].Width=78*z;
-            timerAction.Margin=new Padding((int)(8*z),(int)(10*z),(int)(4*z),(int)(10*z));
+            actions.ColumnStyles[1].Width=70*z;actions.ColumnStyles[2].Width=70*z;
+            configAction.Margin=timerAction.Margin=new Padding((int)(6*z),(int)(10*z),(int)(4*z),(int)(10*z));
             actions.SetBounds(left,(int)((withMessage?116:14)*z),Math.Max(1,right-left),(int)(88*z));
         }
         void LayoutMessage()

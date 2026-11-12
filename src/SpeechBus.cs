@@ -7,16 +7,20 @@ namespace MiyouDaily
     public sealed class FairyMessage
     {
         public string Id {get;set;} public string Text {get;set;} public string At {get;set;}
+        public bool IsCompletion {get;set;}
     }
     public sealed class ScheduledNotice
     {
         public string Day {get;set;} public string Scope {get;set;} public string Text {get;set;}
     }
+    public sealed class NoticeReceipts
+    {public string Day {get;set;} public string[] Ids {get;set;}}
     public static class SpeechBus
     {
-        public static void Publish(Store store,string text)
+        public static FairyMessage Publish(Store store,string text,bool completion=false)
         {
-            Store.AtomicWrite(Path.Combine(store.Root,"speech.json"),Json.Write(new FairyMessage{Id=Guid.NewGuid().ToString("N"),Text=text,At=DateTimeOffset.UtcNow.ToString("o")}));
+            var message=new FairyMessage{Id=Guid.NewGuid().ToString("N"),Text=text,At=DateTimeOffset.UtcNow.ToString("o"),IsCompletion=completion};
+            Store.AtomicWrite(Path.Combine(store.Root,"speech.json"),Json.Write(message));return message;
         }
         public static FairyMessage Read(Store store)
         {
@@ -24,6 +28,8 @@ namespace MiyouDaily
             return Json.Read<FairyMessage>(File.ReadAllText(path));
         }
         public static bool PublishScheduled(Store store,Settings settings,string text)
+        {return PublishScheduledMessage(store,settings,text,false)!=null;}
+        public static FairyMessage PublishScheduledMessage(Store store,Settings settings,string text,bool completion)
         {
             string path=Path.Combine(store.Root,"scheduled-notice.json"),day=Clock.Day(Clock.ChinaNow),cookie="";
             if(settings.Games.Length+settings.Forums.Length>0){try{cookie=store.Decrypt(settings);}catch(InvalidOperationException){}}
@@ -31,8 +37,25 @@ namespace MiyouDaily
             if(settings.HeyboxEnabled){try{var heybox=HeyboxAccount.Load(settings);scope+="/"+(heybox==null?"heybox-logged-out":heybox.Key);}catch(InvalidOperationException){scope+="/heybox-invalid";}}
             ScheduledNotice previous=null;
             try{if(File.Exists(path))previous=Json.Read<ScheduledNotice>(File.ReadAllText(path));}catch(ArgumentException){}catch(InvalidOperationException){}
-            if(previous!=null&&previous.Day==day&&previous.Scope==scope&&previous.Text==text)return false;
-            Publish(store,text);Store.AtomicWrite(path,Json.Write(new ScheduledNotice{Day=day,Scope=scope,Text=text}));return true;
+            if(previous!=null&&previous.Day==day&&previous.Scope==scope&&previous.Text==text)return null;
+            var message=Publish(store,text,completion);Store.AtomicWrite(path,Json.Write(new ScheduledNotice{Day=day,Scope=scope,Text=text}));return message;
+        }
+        static NoticeReceipts Receipts(Store store)
+        {
+            string path=Path.Combine(store.Root,"speech-receipts.json");
+            try{if(File.Exists(path))return Json.Read<NoticeReceipts>(File.ReadAllText(path))??new NoticeReceipts();}catch(ArgumentException){}catch(InvalidOperationException){}
+            return new NoticeReceipts();
+        }
+        public static bool IsPending(Store store,FairyMessage message,DateTimeOffset now)
+        {
+            DateTimeOffset at;if(message==null||!message.IsCompletion||string.IsNullOrEmpty(message.Id)||!DateTimeOffset.TryParse(message.At,out at)||Clock.Day(at)!=Clock.Day(now)||at>now.AddMinutes(5))return false;
+            var receipts=Receipts(store);return receipts.Day!=Clock.Day(now)||receipts.Ids==null||!receipts.Ids.Contains(message.Id);
+        }
+        public static void MarkDelivered(Store store,FairyMessage message)
+        {
+            if(message==null||!message.IsCompletion)return;string day=Clock.Day(Clock.ChinaNow);var receipts=Receipts(store);
+            var ids=receipts.Day==day&&receipts.Ids!=null?receipts.Ids:new string[0];
+            Store.AtomicWrite(Path.Combine(store.Root,"speech-receipts.json"),Json.Write(new NoticeReceipts{Day=day,Ids=ids.Concat(new[]{message.Id}).Distinct().Reverse().Take(64).Reverse().ToArray()}));
         }
         public static bool HasDueWork(Store store,Settings settings,bool scheduled)
         {

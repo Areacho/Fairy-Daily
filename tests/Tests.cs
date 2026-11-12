@@ -262,7 +262,7 @@ partial class Tests
                 bubble.Say("主人，设定已确认。");Assert(bubble.Height>100,"Fairy notification initializes with its message layout");
                 var actions=bubble.Controls.OfType<System.Windows.Forms.TableLayoutPanel>().Single();
                 var shortcuts=actions.Controls.OfType<System.Windows.Forms.Button>().ToArray();
-                Assert(actions.RowCount==2&&shortcuts.Length==3&&shortcuts[1].Text=="签到"&&shortcuts[2].Text=="定时"&&!shortcuts.Any(x=>x.Text.Contains("米游社")||x.Text.Contains("小黑盒")),"first-level shortcuts keep separate login and check-in rows with a compact timer");
+                Assert(actions.RowCount==2&&shortcuts.Length==4&&shortcuts[1].Text=="签到"&&shortcuts[2].Text=="配置"&&shortcuts[3].Text=="定时"&&!shortcuts.Any(x=>x.Text.Contains("米游社")||x.Text.Contains("小黑盒")),"first-level shortcuts keep direct check-in beside smaller configuration and timer buttons");
                 string savedCookie=config.ProtectedCookie;config.ProtectedCookie="";bubble.OpenShortcuts(false);
                 Assert(shortcuts[0].Text=="登录","logged-out widget offers a platform-neutral login entry");
                 config.ProtectedCookie=savedCookie;bubble.Say("主人，登录成功。");
@@ -276,7 +276,7 @@ partial class Tests
                 int normalWidth=bubble.Width;float z=bubble.DeviceDpi/96f;
                 bubble.OpenShortcuts(false);bubble.Width=(int)(384*z);
                 Assert(actions.Right+(int)(8*z)<=panelIcon.Left,"resizing a shortcut bubble never lets the action button overlap the Fairy icon");
-                Assert(shortcuts[0].Top<shortcuts[1].Top&&shortcuts[2].Width<shortcuts[1].Width&&shortcuts[2].Height<shortcuts[1].Height,"login and check-in occupy separate rows while the timer remains smaller");
+                Assert(shortcuts[0].Top<shortcuts[1].Top&&shortcuts.Skip(2).All(b=>b.Width<shortcuts[1].Width&&b.Height<shortcuts[1].Height),"login and check-in occupy separate rows while configuration and timer remain smaller");
                 var dialogueText=bubble.Controls.OfType<System.Windows.Forms.Label>().Single();
                 bubble.OpenShortcuts(true);
                 Assert(dialogueText.Right+(int)(8*z)<=panelIcon.Left&&dialogueText.TextAlign==System.Drawing.ContentAlignment.MiddleCenter,"greeting stays centered in its own area beside the icon after resizing");
@@ -474,7 +474,7 @@ partial class Tests
             if (args.Contains("--render-check")) { using(var host=new System.Windows.Forms.Form()){var handle=host.Handle;RenderingChecks();}return 0; }
             if (args.Contains("--probe-qr")) { ProbeQr().GetAwaiter().GetResult(); return 0; }
             if (args.Contains("--probe-heybox-token")) return ProbeHeyboxToken();
-            Basic(); ApiTests().GetAwaiter().GetResult(); PartialForumRetries().GetAwaiter().GetResult(); PartialRoleRetries().GetAwaiter().GetResult(); CompletionChecks().GetAwaiter().GetResult(); AccountScopeChecks().GetAwaiter().GetResult(); DataLocationChecks(); ScheduledNoticeChecks(); HeyboxChecks().GetAwaiter().GetResult(); InterfaceChecks(); HddNavigationChecks(); HighDpiChecks(); RenderingChecks(); DigitalClockChecks(); StartupChecks();
+            Basic(); ApiTests().GetAwaiter().GetResult(); PartialForumRetries().GetAwaiter().GetResult(); PartialRoleRetries().GetAwaiter().GetResult(); CompletionChecks().GetAwaiter().GetResult(); AccountScopeChecks().GetAwaiter().GetResult(); DataLocationChecks(); ScheduledNoticeChecks(); HeyboxChecks().GetAwaiter().GetResult(); CompletionNoticeChecks(); InterfaceChecks(); HddNavigationChecks(); HighDpiChecks(); RenderingChecks(); DigitalClockChecks(); StartupChecks();
             string smoke = Path.GetFullPath(Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "..", "build", "scheduler-smoke.xml"));
             var xml = XDocument.Parse(Scheduler.MakeXml(Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "MiyouDaily.exe"), System.Security.Principal.WindowsIdentity.GetCurrent().User.Value, "09:00", Clock.ChinaNow));
             foreach (var enabled in xml.Descendants().Where(x => x.Name.LocalName == "Enabled")) enabled.Value = "false";

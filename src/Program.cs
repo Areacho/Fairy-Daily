@@ -28,23 +28,22 @@ namespace MiyouDaily
                     bool scheduled=args.Contains("--scheduled");
                     if(!scheduled && CheckinStatus.IsTodayComplete(store,settings))
                     {
-                        store.Log(CheckinStatus.AlreadyCompleteMessage);SpeechBus.Publish(store,CheckinStatus.AlreadyCompleteMessage);return 0;
+                        store.Log(CheckinStatus.AlreadyCompleteMessage);var notice=CheckinNotifications.Publish(store,settings,new RunSummary(),false);CheckinNotifications.EnsureWidget(store,notice,Application.ExecutablePath);return 0;
                     }
                     bool announce=!scheduled || SpeechBus.HasDueWork(store,settings,scheduled);
                     if(announce&&!scheduled)SpeechBus.Publish(store,"主人，签到委托已接收，正在为您处理。");
                     using (var transport = new Transport())
                     {
                         var result=new Runner(store, transport, null).Run(settings, scheduled, CancellationToken.None).GetAwaiter().GetResult();
-                        if(announce)
+                        if(announce||(scheduled&&CheckinNotifications.ShouldReportScheduled(store,settings,false)))
                         {
-                            string completion=CheckinStatus.CompletionMessage(store,settings,result);
-                            if(scheduled)SpeechBus.PublishScheduled(store,settings,completion);else SpeechBus.Publish(store,completion);
+                            var notice=CheckinNotifications.Publish(store,settings,result,scheduled);CheckinNotifications.EnsureWidget(store,notice,Application.ExecutablePath);
                         }
                         return result.ExitCode;
                     }
                 }
                 Application.EnableVisualStyles(); Application.SetCompatibleTextRenderingDefault(false);
-                using(var singleton=new Mutex(false,"Local\\MiyouDaily-Fairy-"+Environment.UserName))
+                using(var singleton=new Mutex(false,CheckinNotifications.WidgetMutexName))
                 {
                     bool owns=false;try{owns=singleton.WaitOne(0);}catch(AbandonedMutexException){owns=true;}
                     if(!owns)return 0;
@@ -57,7 +56,7 @@ namespace MiyouDaily
             {
                 string message = ex.Message;
                 if (store != null) { try { message = Store.Redact(message, store.Decrypt(store.Load())); } catch { } try { store.Log("执行失败：" + message); } catch { } }
-                if(headless&&store!=null){try{string notice="主人，签到未完成，请打开面板查看："+message;if(args.Contains("--scheduled")&&settings!=null)SpeechBus.PublishScheduled(store,settings,notice);else SpeechBus.Publish(store,notice);}catch{}}
+                if(headless&&store!=null){try{bool scheduled=args.Contains("--scheduled");string text=scheduled?"主人，定时签到未完成，请查看日志："+message:"主人，签到未完成，请查看日志："+message;var notice=CheckinNotifications.PublishText(store,settings??new Settings(),text,scheduled);CheckinNotifications.EnsureWidget(store,notice,Application.ExecutablePath);}catch{}}
                 if (!headless) MessageBox.Show(message, "米游日签", MessageBoxButtons.OK, MessageBoxIcon.Error);
                 return 1;
             }

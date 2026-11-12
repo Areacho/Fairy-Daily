@@ -38,7 +38,7 @@ class PreviewUi
                 using(var bitmap=new Bitmap(bubble.Width,bubble.Height)){bubble.DrawToBitmap(bitmap,new Rectangle(Point.Empty,bitmap.Size));bitmap.Save(Path.Combine(output,"shortcuts.png"));}
                 previewStore.SetCookie(previewSettings,"stuid=10000000; stoken=SYNTHETIC_PREVIEW_TOKEN");bubble.OpenShortcuts(false);bubble.ClientSize=new Size((int)(480*z),(int)(116*z));
                 using(var bitmap=new Bitmap(bubble.Width,bubble.Height)){bubble.DrawToBitmap(bitmap,new Rectangle(Point.Empty,bitmap.Size));bitmap.Save(Path.Combine(output,"shortcuts-logged-in.png"));}previewSettings.ProtectedCookie="";
-                bubble.Say("主人，HDD 接入完成。今天的例行事务，交给 Fairy。");bubble.ClientSize=new Size((int)(480*z),(int)(126*z));
+                bubble.Say("主人，定时委托已完成。今日的米游社与小黑盒签到已全部确认。");bubble.ClientSize=new Size((int)(480*z),(int)(126*z));
                 using(var bitmap=new Bitmap(bubble.Width,bubble.Height)){bubble.DrawToBitmap(bitmap,new Rectangle(Point.Empty,bitmap.Size));bitmap.Save(Path.Combine(output,"notice.png"));}bubble.Hide();
             }
         }

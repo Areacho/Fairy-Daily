@@ -10,6 +10,12 @@ namespace MiyouDaily
     {
         public event Action<FairySection> ModuleRequested;
         public event Action DialogueDismissRequested;
+        public event Action<FairyMessage> CheckinCompleted;
+        internal string ReportCompletion(Settings selected,RunSummary result)
+        {
+            var notice=CheckinNotifications.Publish(store,selected,result,false);
+            if(CheckinCompleted!=null)CheckinCompleted(notice);else Speak(notice.Text);return notice.Text;
+        }
         int dialogueVersion;
         internal void DismissPageDialogue(){dialogueVersion++;if(DialogueDismissRequested!=null)DialogueDismissRequested();}
         internal bool HasMiyouLogin {get{try{return store.Decrypt(settings).Length>0;}catch(InvalidOperationException){return false;}}}
@@ -67,9 +73,9 @@ namespace MiyouDaily
             try
             {
                 Tell("主人，"+name+"签到委托已接收。Fairy 正在核对今日进度，请稍候。");
-                if(CheckinStatus.IsTodayComplete(store,selected)){Tell(CheckinStatus.AlreadyCompleteMessage);return CheckinStatus.AlreadyCompleteMessage;}
+                if(CheckinStatus.IsTodayComplete(store,selected))return ReportCompletion(selected,new RunSummary());
                 using(var transport=new Transport())
-                {var result=await new Runner(store,transport,Write).Run(selected,false,operation.Token);cancel.ThrowIfCancellationRequested();string response=CheckinStatus.CompletionMessage(store,selected,result);if(speechVersion==dialogueVersion)Tell(response);return response;}
+                {var result=await new Runner(store,transport,Write).Run(selected,false,operation.Token);if(!CheckinStatus.IsTodayComplete(store,selected))cancel.ThrowIfCancellationRequested();return ReportCompletion(selected,result);}
             }
             catch(OperationCanceledException){if(!cancel.IsCancellationRequested&&speechVersion==dialogueVersion)Tell("主人，委托已停止。已完成的签到记录会为您保留。");throw;}
             finally{operation.Dispose();operation=null;if(!closing)SetBusy(false);}

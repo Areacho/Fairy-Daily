@@ -2,24 +2,26 @@ using System;
 using System.Linq;
 using System.Reflection;
 using System.Windows.Forms;
+using System.Threading.Tasks;
 using MiyouDaily;
 
 partial class Tests
 {
     static void HddNavigationChecks()
     {
-        var store=TestStore();var settings=new Settings();
+        var store=TestStore();var settings=new Settings();int executions=0;
         using(var panel=new MainForm(store,settings))
-        using(var bubble=new FairyDialogue(panel,()=>{}))
+        using(var bubble=new FairyDialogue(panel,()=>{},()=>{executions++;return Task.FromResult(0);}))
         {
             FairySection? requested=null;panel.ModuleRequested+=section=>requested=section;
             bubble.OpenShortcuts(false);bubble.ShowFor(panel);
             var actions=bubble.Controls.OfType<TableLayoutPanel>().Single().Controls.OfType<Button>().ToArray();
             actions[0].PerformClick();Assert(requested==FairySection.Login&&!panel.Visible,"login shortcut routes to platform selection without opening the dashboard");
-            bubble.OpenShortcuts(false);actions[1].PerformClick();Assert(requested==FairySection.Checkin,"check-in remains independently accessible before login");
-            bubble.OpenShortcuts(false);actions[2].PerformClick();Assert(requested==FairySection.Schedule&&!panel.Visible,"timer shortcut opens only the timing route");
+            bubble.OpenShortcuts(false);requested=null;actions[1].PerformClick();Assert(executions==1&&requested==null&&!panel.Visible,"check-in shortcut directly executes the check-in action without opening configuration");
+            bubble.OpenShortcuts(false);actions[2].PerformClick();Assert(requested==FairySection.Checkin,"small configuration shortcut opens platform and project settings");
+            bubble.OpenShortcuts(false);actions[3].PerformClick();Assert(requested==FairySection.Schedule&&!panel.Visible,"timer shortcut opens only the timing route");
             HeyboxAccount.Set(settings,BoxConfig());bubble.OpenShortcuts(false);Assert(actions[0].Text=="已登录"&&!actions[0].Enabled&&actions[1].Enabled,"Heybox login dims only the login row even before daily automation is enabled");
-            actions[1].PerformClick();Assert(requested==FairySection.Checkin,"authenticated shortcut routes to check-in platform selection");
+            requested=null;actions[1].PerformClick();Assert(executions==2&&requested==null,"authenticated check-in also executes directly without navigating");
             settings.ProtectedHeyboxConfig="";bubble.OpenShortcuts(false);Assert(actions[0].Enabled&&actions[0].Text=="登录"&&actions[1].Text=="签到","logging out restores the login row without changing the check-in entry");bubble.Hide();
             using(var module=new FairyModuleForm(panel,FairySection.Login))
             {

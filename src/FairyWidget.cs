@@ -103,7 +103,7 @@ namespace MiyouDaily
         Point anchor, origin; bool dragging, moved; double frozen; string lastSpeech=""; long nextSpeechPoll;
         readonly GreetingSession greeting=new GreetingSession();
         readonly FairyDialogue dialogue; readonly Timer clickDelay=new Timer();
-        FairyModuleForm module;
+        FairyModuleForm module;bool showingCompletion;
         public FairyWidget(Store store, MainForm panel)
         {
             this.store=store;this.panel=panel;
@@ -129,7 +129,8 @@ namespace MiyouDaily
             dialogue=new FairyDialogue(panel,OpenPanel);dialogue.TopMost=prefs.Topmost;panel.SpeechRequested+=Say;
             panel.ModuleRequested+=OpenModule;
             panel.DialogueDismissRequested+=HideDialogue;
-            try{var last=SpeechBus.Read(store);if(last!=null)lastSpeech=last.Id;}catch{}
+            panel.CheckinCompleted+=CheckinFinished;
+            try{var last=SpeechBus.Read(store);if(last!=null&&!last.IsCompletion)lastSpeech=last.Id;}catch{}
             clickDelay.Interval=SystemInformation.DoubleClickTime;clickDelay.Tick+=(s,e)=>{clickDelay.Stop();if(dialogue.Visible)dialogue.Dismiss();else{dialogue.OpenShortcuts(greeting.Begin());dialogue.ShowFor(this);}};
             LocationChanged+=(s,e)=>{if(dialogue.Visible)dialogue.PlaceNear(this);};
             tray=new NotifyIcon{Icon=AppAssets.Icon,Text="Fairy 日签 · 双击显示挂件",Visible=true,ContextMenuStrip=menu};
@@ -146,7 +147,7 @@ namespace MiyouDaily
         }
         protected override void Dispose(bool disposing)
         {
-            if(disposing){timer.Dispose();clickDelay.Dispose();if(module!=null)module.Dispose();if(dialogue!=null)dialogue.Dispose();if(tray!=null){tray.Visible=false;tray.Dispose();}menu.Dispose();if(panel!=null){panel.SpeechRequested-=Say;panel.ModuleRequested-=OpenModule;panel.DialogueDismissRequested-=HideDialogue;}}
+            if(disposing){timer.Dispose();clickDelay.Dispose();if(module!=null)module.Dispose();if(dialogue!=null)dialogue.Dispose();if(tray!=null){tray.Visible=false;tray.Dispose();}menu.Dispose();if(panel!=null){panel.SpeechRequested-=Say;panel.ModuleRequested-=OpenModule;panel.DialogueDismissRequested-=HideDialogue;panel.CheckinCompleted-=CheckinFinished;}}
             base.Dispose(disposing);
         }
         public void Say(string message)
@@ -155,6 +156,26 @@ namespace MiyouDaily
             if(!Visible){Show();timer.Interval=prefs.Paused?500:33;timer.Start();}dialogue.TopMost=TopMost;dialogue.Say(message);dialogue.ShowFor(this);
         }
         public void OpenPanel(){if(panel.IsDisposed)return;panel.Show();panel.WindowState=FormWindowState.Normal;panel.Activate();panel.Tell("主人，总控制面板已接入。全部委托、账号与运行记录都在这里。");}
+        void CheckinFinished(FairyMessage notice){DeliverCompletion(notice);}
+        internal bool DeliverCompletion(FairyMessage notice,bool? desktopAvailable=null)
+        {
+            if(IsDisposed||showingCompletion||!SpeechBus.IsPending(store,notice,DateTimeOffset.UtcNow)||!(desktopAvailable??CheckinNotifications.DesktopAvailable()))return false;
+            showingCompletion=true;
+            try
+            {
+                if(!Visible){Show();timer.Interval=prefs.Paused?500:33;timer.Start();}
+                dialogue.TopMost=true;dialogue.Say(notice.Text);dialogue.ShowFor(this);
+                if(!dialogue.Visible)return false;SpeechBus.MarkDelivered(store,notice);lastSpeech=notice.Id;return true;
+            }
+            finally{showingCompletion=false;}
+        }
+        internal void PollNotifications(bool? desktopAvailable=null)
+        {
+            var speech=SpeechBus.Read(store);if(speech==null)return;
+            if(speech.IsCompletion){DeliverCompletion(speech,desktopAvailable);return;}
+            if(speech.Id==lastSpeech)return;lastSpeech=speech.Id;DateTimeOffset at;
+            if(DateTimeOffset.TryParse(speech.At,out at)&&DateTimeOffset.UtcNow-at<TimeSpan.FromMinutes(2))Say(speech.Text);
+        }
         void HideDialogue(){clickDelay.Stop();dialogue.HideNow();}
         public void OpenModule(FairySection section)
         {
@@ -172,7 +193,7 @@ namespace MiyouDaily
             if(clock.ElapsedMilliseconds>nextSpeechPoll)
             {
                 nextSpeechPoll=clock.ElapsedMilliseconds+750;
-                try{var speech=SpeechBus.Read(store);if(speech!=null&&speech.Id!=lastSpeech){lastSpeech=speech.Id;DateTimeOffset at;if(DateTimeOffset.TryParse(speech.At,out at)&&DateTimeOffset.UtcNow-at<TimeSpan.FromMinutes(2))Say(speech.Text);}}catch(IOException){}catch(ArgumentException){}
+                try{PollNotifications();}catch(IOException){}catch(ArgumentException){}
             }
             if(!Visible)return;
             using(var bmp=new Bitmap(Width,Height,PixelFormat.Format32bppArgb))using(var g=Graphics.FromImage(bmp))

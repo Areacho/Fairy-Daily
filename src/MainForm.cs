@@ -225,7 +225,7 @@ namespace MiyouDaily
             operation = new CancellationTokenSource(); SetBusy(true);Speak("主人，签到委托已接收，正在为您处理。");
             try
             {
-                using (var transport = new Transport()) { var result=await new Runner(store, transport, Write).Run(settings, false, operation.Token);if(speechVersion==dialogueVersion)Speak(CheckinStatus.CompletionMessage(store, settings, result)); }
+                using (var transport = new Transport()) { var result=await new Runner(store, transport, Write).Run(settings, false, operation.Token);ReportCompletion(settings,result); }
             }
             catch (OperationCanceledException) { Write("已停止，完成的项目已保留。");if(speechVersion==dialogueVersion)Speak("主人，签到已停止，完成的项目已经记下了。"); }
             finally { operation.Dispose(); operation = null; if (!closing) SetBusy(false); }
@@ -233,7 +233,7 @@ namespace MiyouDaily
         internal bool TryReportAlreadyComplete()
         {
             if (!CheckinStatus.IsTodayComplete(store, settings)) return false;
-            Write(CheckinStatus.AlreadyCompleteMessage); Speak(CheckinStatus.AlreadyCompleteMessage); return true;
+            Write(CheckinStatus.AlreadyCompleteMessage);ReportCompletion(settings,new RunSummary());return true;
         }
         void ImportCookie(Form owner=null)
         {
