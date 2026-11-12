@@ -1,0 +1,44 @@
+The MIT License (MIT)
+
+Copyright (c) 2013-2025 Raffael Herrmann
+Copyright (c) 2024-2025 Shane Krueger
+
+Permission is hereby granted, free of charge, to any person obtaining a copy of
+this software and associated documentation files (the "Software"), to deal in
+the Software without restriction, including without limitation the rights to
+use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of
+the Software, and to permit persons to whom the Software is furnished to do so,
+subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS
+FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR
+COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
+IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
+CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+
+
+Miyou UI font: modified static instances of Noto Sans SC (weights 500 / 900).
+Copyright 2014-2021 Adobe (http://www.adobe.com/), with Reserved Font Name Source.
+Source: https://github.com/google/fonts/tree/main/ofl/notosanssc
+Distributed under SIL Open Font License 1.1; see NotoSansSC-OFL.txt.
+Renamed to Miyou UI with Windows Regular/Bold style linking.
+
+Heybox protocol, native signature adaptation and native test vectors:
+Source: https://github.com/Cansiny0320/heybox-daily
+Reference commit: b169bf43d7fb77183856b35c39074ff58c52565c
+Copyright (c) 2026 Cansiny0320. MIT License; see HEYBOX-LICENSE.txt.
+The native signature and SMS protocol were adapted to C# for APP 1.3.398,
+build 1142, shader 14. No Android APK or native Android library is distributed.
+The official device-token SDK and Tencent captcha are loaded from their
+official HTTPS endpoints inside Edge WebView2, without application host objects.
+Those remote components belong to their respective rights holders.
+
+Microsoft.Web.WebView2 1.0.4314.35:
+Copyright (c) Microsoft Corporation. See WEBVIEW2-LICENSE.txt.
+Source: https://www.nuget.org/packages/Microsoft.Web.WebView2/1.0.4314.35
+The managed SDK and x86/x64 native loaders accompany the Windows release.
+The Microsoft Edge WebView2 Runtime is separately installed on Windows.

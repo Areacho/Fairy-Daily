@@ -1,0 +1,15 @@
+vendor/
+dist/
+build/
+*.user
+*.log
+config.json
+state.json
+cookie*
+private/
+.env
+.env.*
+*.pfx
+*.p12
+.vs/
+*.suo

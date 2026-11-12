@@ -1,0 +1,29 @@
+Fairy desktop visual adaptation
+
+Upstream NOTICE:
+Fairy-DSH
+Copyright 2026 Chengzhibense.
+
+This repository contains original Fairy-DSH code and configuration released
+under the Apache License, Version 2.0. Third-party dependencies retain their
+own licenses; see THIRD_PARTY_NOTICES.md.
+
+Fairy, DSH, DeepSeek, Zenless Zone Zero, and related names or marks are not
+licensed by this NOTICE. See TRADEMARKS.md. Game text, official assets,
+private world data, user data, and personal corpora are intentionally not
+distributed by this repository.
+
+Adaptation notice:
+
+The eye geometry, palette and layered breathing / rotating eyelid visual design
+in src/FairyWidget.cs are adapted from Chengzhibense/Fairy-DSH:
+https://github.com/Chengzhibense/Fairy-DSH
+fairy-visual/dsh-fairy-visual/src/client/mascot-eye-svg.js
+fairy-visual/dsh-fairy-visual/src/client/mascot-geometry.js
+fairy-visual/dsh-fairy-visual/src/client/mascot-style.js
+
+Original project licensed under Apache License 2.0 (FAIRY-LICENSE.txt).
+Changes: independently implemented C# GDI+ rendering, native alpha-composited
+desktop window, pointer tracking, blink, tray and daily check-in integration.
+No official game artwork or audio is included. Fairy and Zenless Zone Zero
+belong to their respective rights holders; this is an unofficial fan utility.
