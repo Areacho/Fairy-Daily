@@ -40,7 +40,7 @@ partial class Tests
         foreach(int awareness in new[]{-4,-2,-1})using(var context=new InputDpiContext(awareness))
         foreach(var screen in Screen.AllScreens)
         foreach(int extra in new[]{0,80})
-        foreach(int targetDpi in awareness==-4?new[]{0,96,144,168,192,240,288}:new[]{0})
+        foreach(int targetDpi in awareness==-4?new[]{0,96,120,144,168,192,240,288}:new[]{0})
         using(var form=new InputGeometryForm{Text="Offline text input geometry",ExtraCaption=extra,AutoScaleDimensions=new SizeF(96,96),AutoScaleMode=AutoScaleMode.Dpi,StartPosition=FormStartPosition.Manual,Location=new Point(screen.WorkingArea.Left+40,screen.WorkingArea.Top+40),ClientSize=new Size(650,448),Font=AppFonts.Create(10),ShowInTaskbar=false})
         {
             var surface=PopupSurface.Attach(form);form.Opacity=0;
@@ -59,7 +59,13 @@ partial class Tests
             using(var limit=new VirtualRenderBounds(form))
             {
                 if(targetDpi!=0)SetTestDpi(form,targetDpi);
-                form.ClientSize=new Size(WindowLayout.Pixels(650,form.DeviceDpi),WindowLayout.Pixels(448,form.DeviceDpi));form.PerformLayout();root.PerformLayout();
+                var desired=WindowLayout.Pixels(new Size(650,448),form.DeviceDpi);
+                var border=new Size(form.Width-form.ClientSize.Width,form.Height-form.ClientSize.Height);
+                // Form.ClientSize applies the real desktop's managed tracking
+                // limit. This fixture must retain virtual 4K geometry on CI.
+                LayerPosition(form.Handle,IntPtr.Zero,form.Left,form.Top,desired.Width+border.Width,desired.Height+border.Height,0x214);
+                form.PerformLayout();root.PerformLayout();
+                Assert(form.ClientSize==desired,"virtual input fixture retains its requested DPI-scaled client size");
                 var actual=field.RectangleToScreen(field.ClientRectangle);var visible=surface.VisibleBounds();
                 Point visualInputCenter;
                 using(var frame=surface.ComposeFrame())
