@@ -15,6 +15,7 @@ namespace MiyouDaily
         const long TextBudget=16*1024*1024;
         public static void Quality(Graphics g)
         {g.SmoothingMode=SmoothingMode.AntiAlias;g.TextRenderingHint=TextRenderingHint.ClearTypeGridFit;g.InterpolationMode=InterpolationMode.HighQualityBicubic;}
+        internal static float PixelDpi(Graphics g){return PopupSurface.RenderingDpi>0?PopupSurface.RenderingDpi:g.DpiX;}
         public static void Text(Graphics g,string text,Font font,Rectangle bounds,Color color,bool centered,bool wrap=false,bool top=false)
         {
             if(string.IsNullOrEmpty(text)||bounds.Width<=0||bounds.Height<=0)return;
@@ -22,15 +23,18 @@ namespace MiyouDaily
             // filter only the glyph coverage. The window itself is never scaled.
             // Cache the final native-size image; resize/DPI/font changes have
             // distinct keys, and old frames are bounded by a fixed memory budget.
-            string key=string.Join("|",new[]{text,font.Name,font.SizeInPoints.ToString("R"),((int)font.Style).ToString(),g.DpiX.ToString("R"),g.DpiY.ToString("R"),bounds.Size.ToString(),color.ToArgb().ToString(),centered.ToString(),wrap.ToString(),top.ToString()});
+            // WM_PRINT uses a memory DC whose DPI can differ from the window's
+            // monitor. Use the frame's target DPI for both rasterization/cache.
+            float dpiX=PixelDpi(g),dpiY=PopupSurface.RenderingDpi>0?PopupSurface.RenderingDpi:g.DpiY;
+            string key=string.Join("|",new[]{text,font.Name,font.SizeInPoints.ToString("R"),((int)font.Style).ToString(),dpiX.ToString("R"),dpiY.ToString("R"),bounds.Size.ToString(),color.ToArgb().ToString(),centered.ToString(),wrap.ToString(),top.ToString()});
             Bitmap glyphs;
             if(!textCache.TryGetValue(key,out glyphs))
             {
                 glyphs=new Bitmap(bounds.Width,bounds.Height,System.Drawing.Imaging.PixelFormat.Format32bppPArgb);
-                glyphs.SetResolution(g.DpiX,g.DpiY);
+                glyphs.SetResolution(dpiX,dpiY);
                 using(var large=new Bitmap(bounds.Width*3,bounds.Height*3,System.Drawing.Imaging.PixelFormat.Format32bppPArgb))
                 {
-                    large.SetResolution(g.DpiX,g.DpiY);
+                    large.SetResolution(dpiX,dpiY);
                     using(var hi=Graphics.FromImage(large))
                     using(var format=(StringFormat)StringFormat.GenericTypographic.Clone())
                     using(var brush=new SolidBrush(color))

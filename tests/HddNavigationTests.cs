@@ -37,7 +37,7 @@ partial class Tests
                 module.Navigate(FairySection.MiyouTasks,false);Assert(FindControls(module).OfType<RoundButton>().Any(b=>b.Text=="确认米游社配置")&&!FindControls(module).OfType<RoundButton>().Any(b=>b.Text.Contains("小黑盒")),"Miyou management provides direct configuration confirmation and account actions");
                 Assert(FindControls(module).OfType<GameTile>().Count()==7&&!FindControls(module).OfType<RoundButton>().Any(b=>b.Text=="全部项目配置"||b.Text.EndsWith(" / 配置")),"Miyou management shows all game and community switches without nested configuration entries");
                 using(var auth=new HeyboxForm(store,settings))using(var qr=new QrLoginForm())using(var verification=new HeyboxBrowserDialog(store))
-                    Assert(panel.Opacity==1&&new[]{module.Opacity,auth.Opacity,qr.Opacity,verification.Opacity}.All(x=>Math.Abs(x-.80)<.001),"master dashboard is opaque while module and login popups retain 80 percent opacity");
+                    Assert(panel.Opacity==1&&new[]{module.Opacity,auth.Opacity,qr.Opacity}.All(x=>Math.Abs(x-PopupSurface.InputOpacity)<.0001)&&verification.Opacity==1,"native popup inputs are separated from per-pixel visuals and the embedded browser stays opaque");
                 module.Opacity=0;module.Show(panel);module.Navigate(FairySection.Checkin,false);
                 FindControls(module).OfType<RoundButton>().Single(b=>b.Text.StartsWith("米游社")).PerformClick();
                 FindControls(module).OfType<RoundButton>().Single(b=>b.Text=="米游社登录管理").PerformClick();module.GoBack();

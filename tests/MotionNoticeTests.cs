@@ -43,7 +43,7 @@ partial class Tests
             var foreground=GetForegroundWindow();var capture=GetCapture();var cursor=Cursor.Position;
             widget.PollNotifications(false);Assert(!widget.Visible&&SpeechBus.IsProgressPending(store,progress,DateTimeOffset.UtcNow),"locked desktop defers start bubbles without consuming them");
             widget.PollNotifications(true);Application.DoEvents();var bubble=WidgetDialogue(widget);
-            Assert(GetForegroundWindow()==foreground&&GetCapture()==capture&&Cursor.Position==cursor,"automatic start bubble preserves foreground focus, mouse capture and cursor position");
+            Assert(GetForegroundWindow()==foreground&&GetCapture()==capture&&Cursor.Position==cursor,"automatic start bubble preserves foreground focus, mouse capture and cursor position; foreground="+foreground+" -> "+GetForegroundWindow()+", capture="+capture+" -> "+GetCapture()+", cursor="+cursor+" -> "+Cursor.Position);
             Assert((WindowStyle(widget.Handle,-20)&0x08000000)!=0&&(WindowStyle(bubble.Handle,-20)&0x08000000)!=0,"widget and dialogue both use the native no-activation window style");
             Assert(ScrollMessage(bubble.Handle,0x21,IntPtr.Zero,IntPtr.Zero).ToInt32()==3,"notification mouse activation keeps intentional clicks without taking keyboard focus");
             Assert(bubble.Controls.OfType<Label>().Single().Text==progress.Text&&bubble.KeepNoticeOpen&&!bubble.Controls.OfType<TableLayoutPanel>().Single().Visible,"automatic execution appears as a persistent message-only bubble");
@@ -82,7 +82,7 @@ partial class Tests
             watch.Stop();root.ControlRemoved-=removed;
             Assert(swaps==5&&completeBeforeSwap,"navigation keeps the old page until the complete replacement is built");
             Assert(module.Visible&&(WindowStyle(module.Handle,-16)&0x10000000)!=0&&module.Controls.Count==1,"atomic page changes restore drawing and retain a single content host");
-            Assert((WindowStyle(module.Handle,-20)&0x02000000)!=0,"page windows compose child controls together to avoid intermediate white frames");
+            Assert((WindowStyle(module.Handle,-20)&0x02000000)!=0,"native popup controls use buffered painting without individually layered child windows");
             try{using(var redraw=new WindowRedrawBatch(module))throw new InvalidOperationException("test frame cleanup");}catch(InvalidOperationException){}
             Assert((WindowStyle(module.Handle,-16)&0x10000000)!=0,"drawing is restored even when a batched update fails");
             Console.WriteLine("Navigation review: five page replacements in "+watch.ElapsedMilliseconds+" ms at "+module.DeviceDpi+" DPI.");

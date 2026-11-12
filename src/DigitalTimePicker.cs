@@ -75,7 +75,7 @@ namespace MiyouDaily
             var g=e.Graphics;UiRendering.Quality(g);float z=DisplayScale;
             Theme.FillRound(g,new RectangleF(.5f,.5f,Width-1,Height-1),14*z,Theme.Background,Focused?Theme.Cyan:hover?Color.FromArgb(70,128,158):Theme.Edge);
             Theme.FillRound(g,new RectangleF(5*z,5*z,Width-10*z,Height-10*z),10*z,Theme.Tile,Theme.Edge);
-            using(var f=AppFonts.Create(7.5f*z*96/g.DpiY))
+            using(var f=AppFonts.Create(7.5f*z*96/UiRendering.PixelDpi(g)))
             {
                 UiRendering.Text(g,"DAILY TIMER",f,new Rectangle((int)(15*z),(int)(5*z),(int)(87*z),(int)(14*z)),Theme.Muted,false);
                 UiRendering.Text(g,"UTC +08",f,new Rectangle((int)(105*z),(int)(5*z),(int)(54*z),(int)(14*z)),Theme.Muted,false);

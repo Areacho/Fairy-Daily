@@ -14,38 +14,53 @@ namespace MiyouDaily
         {Synchronize(bubble,GetForegroundWindow(),false);}
         // Explicit foreground also permits native layering regression checks
         // without activating test windows on the user's desktop.
+        sealed class LayerState {internal IntPtr RaisedOver;}
+        static readonly System.Runtime.CompilerServices.ConditionalWeakTable<Form,LayerState> states=new System.Runtime.CompilerServices.ConditionalWeakTable<Form,LayerState>();
         internal static void Synchronize(Form bubble,IntPtr foreground,bool raise)
         {
             if(bubble.IsDisposed||!bubble.Visible||!bubble.IsHandleCreated)return;
-            const uint flags=0x1|0x2|0x10|0x200;
+            const uint flags=0x213;
             uint process;bool own=foreground!=IntPtr.Zero&&GetWindowThreadProcessId(foreground,out process)!=0&&process==GetCurrentProcessId();
-            bool pinned=(GetWindowLong(bubble.Handle,-20)&8)!=0;
-            if(!own)
+            var state=states.GetOrCreateValue(bubble);
+            // An intentional click must work even when the widget did not take
+            // focus. Keep that layer until the user selects another window.
+            if(raise)state.RaisedOver=foreground;
+            bool selected=own||raise||(state.RaisedOver!=IntPtr.Zero&&state.RaisedOver==foreground);
+            if(!selected)
             {
-                if(bubble.TopMost||pinned)
+                state.RaisedOver=IntPtr.Zero;
+                if(bubble.TopMost||(GetWindowLong(bubble.Handle,-20)&8)!=0)
                 {
-                    bubble.TopMost=false;
-                    SetWindowPos(bubble.Handle,new IntPtr(-2),0,0,0,0,flags);
-                    // Demoting alone places a window at the top of the normal
-                    // band. Put it behind the app just selected by the user.
+                    bubble.TopMost=false;SetWindowPos(bubble.Handle,new IntPtr(-2),0,0,0,0,flags);
                     if(foreground!=IntPtr.Zero&&(GetWindowLong(foreground,-20)&8)==0)
                         SetWindowPos(bubble.Handle,foreground,0,0,0,0,flags);
                 }
-                else if(raise)SetWindowPos(bubble.Handle,IntPtr.Zero,0,0,0,0,flags);
                 return;
             }
-            bubble.TopMost=true;
-            if(raise||!pinned){SetWindowPos(bubble.Handle,new IntPtr(-1),0,0,0,0,flags);return;}
-            foreach(Form page in Application.OpenForms)
+            // Interactive pages take priority over narration, including pages
+            // opened after the bubble. Never repeatedly raise over a dialog.
+            IntPtr page=IntPtr.Zero;
+            foreach(Form candidate in Application.OpenForms)
             {
-                if(page!=bubble&&!page.IsDisposed&&page.IsHandleCreated&&page.Visible&&page.WindowState!=FormWindowState.Minimized&&page.Bounds.IntersectsWith(bubble.Bounds)&&Above(page.Handle,bubble.Handle))
-                {SetWindowPos(bubble.Handle,new IntPtr(-1),0,0,0,0,flags);return;}
+                if(candidate==bubble||candidate is FairyWidget||PopupSurface.IsBackground(candidate)||candidate.IsDisposed||!candidate.IsHandleCreated||!candidate.Visible||candidate.WindowState==FormWindowState.Minimized||!candidate.Bounds.IntersectsWith(bubble.Bounds))continue;
+                if(page==IntPtr.Zero||Above(candidate.Handle,page))page=candidate.Handle;
             }
-            // Common file pickers and message boxes are native modal windows,
-            // so they do not appear in Application.OpenForms.
-            if(foreground==bubble.Handle)return;
-            var name=new StringBuilder(40);GetClassName(foreground,name,name.Capacity);NativeRect bounds;
-            if(name.ToString()=="#32770"&&GetWindowRect(foreground,out bounds)&&Rectangle.FromLTRB(bounds.Left,bounds.Top,bounds.Right,bounds.Bottom).IntersectsWith(bubble.Bounds)&&Above(foreground,bubble.Handle))SetWindowPos(bubble.Handle,new IntPtr(-1),0,0,0,0,flags);
+            if(foreground!=bubble.Handle)
+            {
+                var name=new StringBuilder(40);GetClassName(foreground,name,name.Capacity);NativeRect bounds;
+                if(own&&name.ToString()=="#32770"&&GetWindowRect(foreground,out bounds)&&Rectangle.FromLTRB(bounds.Left,bounds.Top,bounds.Right,bounds.Bottom).IntersectsWith(bubble.Bounds))page=foreground;
+            }
+            if(page!=IntPtr.Zero)
+            {
+                bool pinned=(GetWindowLong(page,-20)&8)!=0;
+                if(bubble.TopMost!=pinned)bubble.TopMost=pinned;
+                SetWindowPos(bubble.Handle,page,0,0,0,0,flags);
+            }
+            else
+            {
+                bubble.TopMost=true;
+                SetWindowPos(bubble.Handle,new IntPtr(-1),0,0,0,0,flags);
+            }
         }
         static bool Above(IntPtr upper,IntPtr lower)
         {

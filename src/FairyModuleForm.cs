@@ -19,7 +19,7 @@ namespace MiyouDaily
         readonly List<RoundButton> buttons=new List<RoundButton>();
         readonly CancellationTokenSource lifetime=new CancellationTokenSource();
         readonly Stack<FairySection> history=new Stack<FairySection>();
-        FairySection section;bool working,disposed;
+        FairySection section;bool working,disposed,updatingScrollMetrics;
         public FairySection Section {get{return section;}}
         float LayoutScale {get{return IsHandleCreated?DeviceDpi/96f:1f;}}
         protected override void OnHandleCreated(EventArgs e){base.OnHandleCreated(e);Theme.DarkTitlebar(Handle);}
@@ -27,7 +27,7 @@ namespace MiyouDaily
         public FairyModuleForm(MainForm panel,FairySection section)
         {
             SuspendLayout();
-            this.panel=panel;Icon=AppAssets.Icon;Font=AppFonts.Create(10);BackColor=Theme.Background;ForeColor=Theme.Text;Opacity=Theme.PopupOpacity;DoubleBuffered=true;
+            this.panel=panel;Icon=AppAssets.Icon;Font=AppFonts.Create(10);BackColor=Theme.Background;ForeColor=Theme.Text;PopupSurface.Attach(this);DoubleBuffered=true;
             AutoScaleDimensions=new SizeF(96,96);AutoScaleMode=AutoScaleMode.Dpi;MinimumSize=new Size(520,280);StartPosition=FormStartPosition.CenterScreen;MaximizeBox=false;
             var root=new FairyBackdrop{Dock=DockStyle.Fill,ColumnCount=1,RowCount=3,Padding=new Padding(24,16,24,22)};
             root.RowStyles.Add(new RowStyle(SizeType.Absolute,52));root.RowStyles.Add(new RowStyle(SizeType.Absolute,44));root.RowStyles.Add(new RowStyle(SizeType.Percent,100));Controls.Add(root);
@@ -35,13 +35,41 @@ namespace MiyouDaily
             heading.Font=AppFonts.Create(19,FontStyle.Bold);heading.BackColor=Color.Transparent;heading.ForeColor=Theme.Text;heading.Location=new Point(84,5);heading.Size=new Size(520,43);header.Controls.Add(heading);root.Controls.Add(header,0,0);
             description.Dock=DockStyle.Fill;description.BackColor=Color.Transparent;description.ForeColor=Theme.Muted;root.Controls.Add(description,0,1);
             body.Dock=DockStyle.Fill;body.BackColor=Color.Transparent;body.ColumnCount=1;body.ColumnStyles.Add(new ColumnStyle(SizeType.Percent,100));body.AutoScroll=true;root.Controls.Add(body,0,2);
+            body.Layout+=(s,e)=>UpdateScrollMetrics();
             ScrollbarTheme.Attach(body);
             FormClosing+=(s,e)=>lifetime.Cancel();FormClosed+=(s,e)=>panel.DismissPageDialogue();Navigate(section,false);
             DpiChanged+=(s,e)=>BeginInvoke(new Action(()=>{UpdateHeader();UpdateScrollMetrics();}));WindowLayout.Watch(this,MinimumLogical,true);
             ResumeLayout(true);
         }
         Size MinimumLogical(){return section==FairySection.MiyouTasks?new Size(820,600):new Size(520,280);}
-        void UpdateScrollMetrics(){body.AutoScrollMinSize=WindowLayout.Pixels(new Size(MinimumLogical().Width-64,0),DeviceDpi);}
+        void UpdateScrollMetrics()
+        {
+            if(updatingScrollMetrics)return;updatingScrollMetrics=true;
+            try
+            {
+                // Docked TableLayoutPanel rows can extend past the viewport without
+                // contributing to WinForms' inferred scroll range. Keep the full
+                // absolute row height reachable on small work areas at high DPI.
+                int height=(int)Math.Ceiling(body.RowStyles.Cast<RowStyle>().Where(row=>row.SizeType==SizeType.Absolute).Sum(row=>row.Height))+body.Padding.Vertical;
+                int minimumWidth=WindowLayout.Pixels(MinimumLogical().Width-64,DeviceDpi);
+                body.AutoScrollMinSize=new Size(minimumWidth,height);
+                // Percentage columns follow DisplayRectangle, which can retain the
+                // pre-scrollbar width. Fit the viewport explicitly so adding a
+                // vertical scrollbar does not clip the right side of every row.
+                if(body.ColumnStyles.Count>0)
+                {
+                    var column=body.ColumnStyles[0];int width=Math.Max(minimumWidth,body.ClientSize.Width-body.Padding.Horizontal);
+                    if(column.SizeType!=SizeType.Absolute)column.SizeType=SizeType.Absolute;
+                    if(Math.Abs(column.Width-width)>.1f)column.Width=width;
+                    foreach(Control row in body.Controls)
+                    {
+                        var maximum=new Size(Math.Max(1,width-row.Margin.Horizontal),row.MaximumSize.Height);
+                        if(row.MaximumSize!=maximum)row.MaximumSize=maximum;
+                    }
+                }
+            }
+            finally{updatingScrollMetrics=false;}
+        }
         void UpdateHeader()
         {
             float z=LayoutScale;bool showBack=history.Count>0||(section!=FairySection.Login&&section!=FairySection.Checkin&&section!=FairySection.Schedule);
@@ -93,6 +121,7 @@ namespace MiyouDaily
             section=target;SuspendLayout();
             var previous=body;var host=(TableLayoutPanel)previous.Parent;host.SuspendLayout();
             body=new BufferedTableLayout{Dock=DockStyle.Fill,BackColor=Color.Transparent,ColumnCount=1,RowCount=0,AutoScroll=true};body.ColumnStyles.Add(new ColumnStyle(SizeType.Percent,100));body.SuspendLayout();buttons.Clear();
+            body.Layout+=(s,e)=>UpdateScrollMetrics();
             ScrollbarTheme.Attach(body);
             float z=LayoutScale;Size size;
             switch(target){case FairySection.MiyouTasks:size=new Size(860,650);break;case FairySection.HeyboxTasks:size=new Size(600,460);break;case FairySection.MiyouOptions:size=new Size(740,600);break;case FairySection.HeyboxOptions:size=new Size(560,360);break;case FairySection.Schedule:size=new Size(620,560);break;case FairySection.Login:case FairySection.Checkin:size=new Size(580,310);break;case FairySection.MiyouAccount:case FairySection.HeyboxAccount:size=new Size(600,340);break;default:size=new Size(600,370);break;}
@@ -127,7 +156,7 @@ namespace MiyouDaily
             }
             body.RowStyles.Add(new RowStyle(SizeType.Percent,100));body.RowCount++;
             host.Controls.Remove(previous);host.Controls.Add(body,0,2);
-            Text="Fairy · "+heading.Text;body.ResumeLayout(false);host.ResumeLayout(true);ResumeLayout(true);body.PerformLayout();
+            Text="Fairy · "+heading.Text;UpdateScrollMetrics();body.ResumeLayout(false);host.ResumeLayout(true);ResumeLayout(true);body.PerformLayout();
             previous.Dispose();
         }
         void BuildTasks(FairyPlatform platform)

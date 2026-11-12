@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Diagnostics;
 using System.Drawing;
 using System.Drawing.Drawing2D;
@@ -17,6 +17,8 @@ namespace MiyouDaily
         readonly FairyPanelButton panelIcon;
         readonly ToolTip tips=new ToolTip();
         readonly MainForm panel;
+        readonly PopupSurface surface;
+        double BackgroundOpacity {get{return surface.Opacity;}set{surface.Opacity=value;}}
         Form anchor;
         bool widgetBound;
         bool? dockLeft;
@@ -31,7 +33,7 @@ namespace MiyouDaily
         {
             SuspendLayout();
             this.panel=panel;Text="Fairy · 快捷对话";Icon=AppAssets.Icon;Font=AppFonts.Create(10);
-            FormBorderStyle=FormBorderStyle.None;ShowInTaskbar=false;StartPosition=FormStartPosition.Manual;BackColor=Theme.Surface;DoubleBuffered=true;Opacity=Theme.PopupOpacity;
+            FormBorderStyle=FormBorderStyle.None;ShowInTaskbar=false;StartPosition=FormStartPosition.Manual;BackColor=Theme.Surface;DoubleBuffered=true;surface=PopupSurface.Attach(this);
             ClientSize=new Size(480,126);AutoScaleDimensions=new SizeF(96,96);AutoScaleMode=AutoScaleMode.Dpi;
             var close=new RoundButton{Text="×",Size=new Size(29,29),Location=new Point(439,10),Anchor=AnchorStyles.Top|AnchorStyles.Right};close.Click+=(s,e)=>Dismiss();Controls.Add(close);
             message=new SmoothLabel{Location=new Point(24,30),Size=new Size(354,68),ForeColor=Theme.Text,BackColor=Color.Transparent,Font=AppFonts.Create(11,FontStyle.Bold)};Controls.Add(message);
@@ -92,8 +94,8 @@ namespace MiyouDaily
         void RefreshActions(){bool logged=panel.HasLogin;loginAction.Text=logged?"已登录":"登录";loginAction.AccessibleName="Fairy快捷"+loginAction.Text;loginAction.Enabled=!logged;checkinAction.Text="签到";}
         void Begin(Mode next,int height)
         {
-            mode=next;compactGreeting=next==Mode.Greeting;compactEye=next==Mode.Greeting||next==Mode.Options;targetHeight=height;fromHeight=Visible?Height:(compactGreeting?58:next==Mode.Options?116:126)*DeviceDpi/96f;fromOpacity=Visible?Opacity:0;
-            if(!Visible){Height=(int)fromHeight;Opacity=0;}
+            mode=next;compactGreeting=next==Mode.Greeting;compactEye=next==Mode.Greeting||next==Mode.Options;targetHeight=height;fromHeight=Visible?Height:(compactGreeting?58:next==Mode.Options?116:126)*DeviceDpi/96f;fromOpacity=Visible?BackgroundOpacity:0;
+            if(!Visible){Height=(int)fromHeight;BackgroundOpacity=0;}
             LayoutMessage();LayoutActions(!compactEye);
             clock.Restart();idleClock.Restart();motion.Start();idle.Start();RoundWindow();Invalidate(true);
         }
@@ -130,7 +132,7 @@ namespace MiyouDaily
         }
         public void Dismiss()
         {
-            if(!Visible)return;if(Dismissed!=null)Dismissed();fromOpacity=Opacity;mode=Mode.Closing;clock.Restart();idle.Stop();motion.Start();
+            if(!Visible)return;if(Dismissed!=null)Dismissed();fromOpacity=BackgroundOpacity;mode=Mode.Closing;clock.Restart();idle.Stop();motion.Start();
         }
         public void HideNow()
         {
@@ -139,17 +141,17 @@ namespace MiyouDaily
         void Animate()
         {
             double ms=clock.Elapsed.TotalMilliseconds;
-            if(mode==Mode.Closing){Opacity=Math.Max(0,fromOpacity*(1-ms/130));if(ms>=130)Hide();return;}
+            if(mode==Mode.Closing){BackgroundOpacity=Math.Max(0,fromOpacity*(1-ms/130));if(ms>=130)Hide();return;}
             if(mode==Mode.Greeting)
             {
                 if(GreetingSession.StageAt(ms)==2){RefreshActions();message.Visible=false;actions.Visible=true;LayoutActions(false);Begin(Mode.Options,116);return;}
                 message.Text=GreetingSession.VisibleTextAt(ms);
                 double fade=ms<180?ms/180:ms>1290&&ms<1450?(1450-ms)/160:ms>=1450&&ms<1630?(ms-1450)/180:ms>3190?(3350-ms)/160:1;
-                Opacity=Math.Max(.03,Math.Min(1,fade))*Theme.PopupOpacity;Invalidate();return;
+                BackgroundOpacity=Math.Max(.03,Math.Min(1,fade))*Theme.PopupOpacity;Invalidate();return;
             }
             double t=Math.Min(1,ms/210),ease=1-Math.Pow(1-t,3);
             Height=(int)(fromHeight+(targetHeight*DeviceDpi/96f-fromHeight)*ease);
-            Opacity=Math.Max(.02,Math.Min(Theme.PopupOpacity,fromOpacity+(Theme.PopupOpacity-fromOpacity)*ease));
+            BackgroundOpacity=Math.Max(.02,Math.Min(Theme.PopupOpacity,fromOpacity+(Theme.PopupOpacity-fromOpacity)*ease));
             RoundWindow();Reposition();Invalidate(true);
             if(t>=1){motion.Stop();idleClock.Restart();}
         }
@@ -182,12 +184,7 @@ namespace MiyouDaily
         }
         void PaintSurface(Graphics g)
         {
-            g.Clear(BackColor);g.SmoothingMode=SmoothingMode.AntiAlias;float z=DeviceDpi/96f;
-            using(var path=Theme.Round(new RectangleF(2,2,Width-4,Height-4),23*z))
-            {
-                var state=g.Save();g.SetClip(path,CombineMode.Intersect);Theme.HddBackground(g,ClientRectangle);g.Restore(state);
-                using(var p=new Pen(Color.FromArgb(140,110,194,255),1.2f*z))g.DrawPath(p,path);
-            }
+            g.Clear(PopupSurface.ClearColor);
         }
     }
 }

@@ -1,4 +1,4 @@
-﻿param([switch]$Test,[switch]$RenderCheck)
+﻿param([switch]$Test,[switch]$RenderCheck,[string]$OutputDirectory)
 $ErrorActionPreference = 'Stop'
 $taskRoot = Split-Path -Parent $PSScriptRoot
 $compiler = Join-Path $env:WINDIR 'Microsoft.NET\Framework64\v4.0.30319\csc.exe'
@@ -18,7 +18,7 @@ if (!(Test-Path -LiteralPath $qrDll)) {
     Add-Type -AssemblyName System.IO.Compression.FileSystem
     [IO.Compression.ZipFile]::ExtractToDirectory($package, $unpacked)
 }
-$dist = Join-Path $taskRoot 'dist'
+$dist = if ($OutputDirectory) { [IO.Path]::GetFullPath($OutputDirectory) } else { Join-Path $taskRoot 'dist' }
 New-Item -ItemType Directory -Force -Path $dist | Out-Null
 $webviewVersion='1.0.4314.35'
 $webviewPackage=Join-Path $vendorRoot ("microsoft.web.webview2.$webviewVersion.nupkg")

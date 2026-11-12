@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Drawing;
 using System.IO;
 using System.Linq;
@@ -244,9 +244,9 @@ namespace MiyouDaily
         {
             try
             {
-                using (var dialog = new Form { Text = "导入登录凭证", Size = new Size(650, 235), StartPosition = FormStartPosition.Manual, MinimizeBox = false, MaximizeBox = false, Font = Font, BackColor=Theme.Surface, ForeColor=Theme.Text,Opacity=Theme.PopupOpacity })
+                using (var dialog = new Form { Text = "导入登录凭证", Size = new Size(650, 235), StartPosition = FormStartPosition.Manual, MinimizeBox = false, MaximizeBox = false, Font = Font, BackColor=Theme.Surface, ForeColor=Theme.Text })
                 {
-                    dialog.SuspendLayout();dialog.AutoScaleDimensions=new SizeF(96,96);dialog.AutoScaleMode=AutoScaleMode.Dpi;
+                    PopupSurface.Attach(dialog);dialog.SuspendLayout();dialog.AutoScaleDimensions=new SizeF(96,96);dialog.AutoScaleMode=AutoScaleMode.Dpi;
                     dialog.FormClosed+=(s,e)=>{if(dialog.DialogResult!=DialogResult.OK)DismissPageDialogue();};
                     var backdrop=new FairyBackdrop{Dock=DockStyle.Fill,ColumnCount=1,RowCount=1};backdrop.ColumnStyles.Add(new ColumnStyle(SizeType.Percent,100));backdrop.RowStyles.Add(new RowStyle(SizeType.Percent,100));dialog.Controls.Add(backdrop);dialog.Shown+=(s,e)=>Theme.DarkTitlebar(dialog.Handle);
                     var content=new Panel{Dock=DockStyle.Fill,Margin=Padding.Empty,BackColor=Color.Transparent};backdrop.Controls.Add(content);

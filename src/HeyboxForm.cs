@@ -21,7 +21,7 @@ namespace MiyouDaily
         {
             SuspendLayout();
             this.store=store;this.settings=settings;this.output=output;this.speak=speak;this.changed=changed;this.dismiss=dismiss;
-            Text="FAIRY / 小黑盒登录";Icon=AppAssets.Icon;Font=AppFonts.Create(10);ForeColor=Theme.Text;BackColor=Theme.Background;Opacity=Theme.PopupOpacity;
+            Text="FAIRY / 小黑盒登录";Icon=AppAssets.Icon;Font=AppFonts.Create(10);ForeColor=Theme.Text;BackColor=Theme.Background;PopupSurface.Attach(this);
             AutoScaleDimensions=new SizeF(96,96);AutoScaleMode=AutoScaleMode.Dpi;ClientSize=new Size(650,448);MinimumSize=new Size(600,440);StartPosition=FormStartPosition.CenterParent;
             var root=new FairyBackdrop{Dock=DockStyle.Fill,ColumnCount=1,RowCount=4,Padding=new Padding(22)};
             root.RowStyles.Add(new RowStyle(SizeType.Absolute,55));root.RowStyles.Add(new RowStyle(SizeType.Absolute,175));root.RowStyles.Add(new RowStyle(SizeType.Absolute,48));root.RowStyles.Add(new RowStyle(SizeType.Percent,100));Controls.Add(root);

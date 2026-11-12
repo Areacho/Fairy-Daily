@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Diagnostics;
 using System.Drawing;
 using System.Drawing.Drawing2D;
@@ -16,7 +16,7 @@ namespace MiyouDaily
         {
             SuspendLayout();Text="Fairy · 扫码登录";Icon=AppAssets.Icon;Font=AppFonts.Create(10);
             FormBorderStyle=FormBorderStyle.None;ShowInTaskbar=false;StartPosition=FormStartPosition.CenterScreen;
-            BackColor=Theme.Surface;Opacity=Theme.PopupOpacity;DoubleBuffered=true;AutoScaleDimensions=new SizeF(96,96);AutoScaleMode=AutoScaleMode.Dpi;ClientSize=new Size(328,430);
+            BackColor=Theme.Surface;PopupSurface.Attach(this);DoubleBuffered=true;AutoScaleDimensions=new SizeF(96,96);AutoScaleMode=AutoScaleMode.Dpi;ClientSize=new Size(328,430);
             var root=new FairyBackdrop{Dock=DockStyle.Fill,ColumnCount=1,RowCount=4,Padding=new Padding(18)};
             root.RowStyles.Add(new RowStyle(SizeType.Absolute,60));root.RowStyles.Add(new RowStyle(SizeType.Percent,100));root.RowStyles.Add(new RowStyle(SizeType.Absolute,38));root.RowStyles.Add(new RowStyle(SizeType.Absolute,36));Controls.Add(root);
             var header=new Panel{Size=new Size(292,60),Dock=DockStyle.Fill,BackColor=Color.Transparent};
@@ -28,7 +28,7 @@ namespace MiyouDaily
             status.Text="正在生成二维码…";status.ForeColor=Theme.Lime;status.TextAlign=ContentAlignment.MiddleCenter;status.Dock=DockStyle.Fill;status.BackColor=Color.Transparent;root.Controls.Add(status,0,2);
             var cancel=new RoundButton{Text="取消登录",Dock=DockStyle.Fill};cancel.Click+=(s,e)=>Close();CancelButton=cancel;root.Controls.Add(cancel,0,3);
             root.Paint+=(s,e)=>{e.Graphics.SmoothingMode=SmoothingMode.AntiAlias;using(var path=Theme.Round(new RectangleF(.5f,.5f,root.Width-1,root.Height-1),22*DeviceDpi/96f))using(var pen=new Pen(Theme.Edge))e.Graphics.DrawPath(pen,path);};
-            fade.Interval=16;fade.Tick+=(s,e)=>{Opacity=Theme.PopupOpacity*Math.Min(1,fadeClock.Elapsed.TotalMilliseconds/170);if(Opacity>=Theme.PopupOpacity)fade.Stop();};
+            fade.Interval=16;fade.Tick+=(s,e)=>{PopupSurface.Attach(this).Opacity=Theme.PopupOpacity*Math.Min(1,fadeClock.Elapsed.TotalMilliseconds/170);if(PopupSurface.Attach(this).Opacity>=Theme.PopupOpacity)fade.Stop();};
             DpiChanged+=(s,e)=>BeginInvoke(new Action(RoundWindow));ResumeLayout(true);WindowLayout.Watch(this,()=>Size.Empty,true);
         }
         public void SetStatus(string text){if(!IsDisposed)status.Text=text;}
@@ -38,7 +38,7 @@ namespace MiyouDaily
         }
         public void ShowFor(Form owner)
         {
-            Opacity=0;
+            PopupSurface.Attach(this).Opacity=0;
             if(owner!=null){TopMost=owner.TopMost;Show(owner);}else Show();
         }
         protected override void OnShown(EventArgs e){base.OnShown(e);RoundWindow();fadeClock.Restart();fade.Start();}

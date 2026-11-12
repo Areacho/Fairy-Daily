@@ -33,8 +33,10 @@ partial class Tests
             {
                 LayerPosition(page.Handle,new IntPtr(-1),0,0,0,0,0x213);var foreground=GetForegroundWindow();var capture=GetCapture();var cursor=Cursor.Position;
                 show();Application.DoEvents();DialogueLayer.Synchronize(bubble,page.Handle,true);
-                Assert(bubble.Visible&&AboveWindow(bubble.Handle,page.Handle)&&(WindowStyle(bubble.Handle,-20)&8)!=0,"every dialogue entry stays above an overlapping page while this application is selected");
-                Assert(GetForegroundWindow()==foreground&&GetCapture()==capture&&Cursor.Position==cursor,"raising a dialogue preserves foreground focus, mouse capture and pointer position");
+                Assert(bubble.Visible&&AboveWindow(page.Handle,bubble.Handle)&&(WindowStyle(bubble.Handle,-20)&8)!=0,"every dialogue entry stays below an overlapping interactive page");
+                PopupSurface.Attach(bubble).RenderNow();
+                Assert(AboveWindow(page.Handle,PopupSurface.Attach(bubble).Background.Handle),"interactive pages also cover the complete visible dialogue frame");
+                Assert(GetForegroundWindow()==foreground&&GetCapture()==capture&&Cursor.Position==cursor,"raising a dialogue preserves foreground focus, mouse capture and pointer position; foreground="+foreground+" -> "+GetForegroundWindow()+", capture="+capture+" -> "+GetCapture()+", cursor="+cursor+" -> "+Cursor.Position);
             }
             Assert(!widget.TopMost&&(WindowStyle(widget.Handle,-20)&8)==0,"dialogue visibility is independent of the widget's disabled pin preference");
             using(var login=new PassiveForm{TopMost=true,Opacity=0,ShowInTaskbar=false,Bounds=bubble.Bounds,StartPosition=FormStartPosition.Manual})
@@ -43,12 +45,16 @@ partial class Tests
                 Assert(AboveWindow(login.Handle,bubble.Handle),"regression fixture opens a new owned login page above the already visible bubble");
                 var foreground=GetForegroundWindow();var capture=GetCapture();var cursor=Cursor.Position;
                 DialogueLayer.Synchronize(bubble,login.Handle,false);
-                Assert(AboveWindow(bubble.Handle,login.Handle),"visible dialogue rises above a login page opened after the original notification");
+                Assert(AboveWindow(login.Handle,bubble.Handle),"a newly opened login page remains above the existing dialogue");
+                PopupSurface.Attach(bubble).RenderNow();
+                Assert(AboveWindow(login.Handle,PopupSurface.Attach(bubble).Background.Handle),"a later login window stays above the visible dialogue image");
                 Assert(GetForegroundWindow()==foreground&&GetCapture()==capture&&Cursor.Position==cursor,"maintaining dialogue layering never activates the popup or changes mouse state");
             }
             var external=GetDesktopWindow();var originalForeground=GetForegroundWindow();var originalCapture=GetCapture();var originalCursor=Cursor.Position;
             widget.TopMost=true;LayerPosition(widget.Handle,new IntPtr(-1),0,0,0,0,0x213);DialogueLayer.Synchronize(bubble,external,false);
             Assert(bubble.Owner==null&&!bubble.TopMost&&(WindowStyle(bubble.Handle,-20)&8)==0,"switching away demotes the bubble even when its widget remains pinned");
+            PopupSurface.Attach(bubble).RenderNow();
+            Assert((WindowStyle(PopupSurface.Attach(bubble).Background.Handle,-20)&8)==0,"switching away also demotes the visible dialogue image");
             Assert(widget.TopMost&&(WindowStyle(widget.Handle,-20)&8)!=0,"demoting the bubble preserves the user's pinned widget preference");
             LayerPosition(page.Handle,new IntPtr(-1),0,0,0,0,0x213);
             for(int i=0;i<4;i++)DialogueLayer.Synchronize(bubble,external,false);
@@ -56,10 +62,18 @@ partial class Tests
             bubble.HideNow();bubble.Say("主人，后台任务已完成。");bubble.ShowFor(widget);DialogueLayer.Synchronize(bubble,external,false);
             Assert(bubble.Owner==null&&!bubble.TopMost&&(WindowStyle(bubble.Handle,-20)&8)==0,"a new notification can remain in the normal band independently of a pinned widget");
             DialogueLayer.Synchronize(bubble,page.Handle,false);
-            Assert(AboveWindow(bubble.Handle,page.Handle)&&bubble.TopMost,"returning to this application restores dialogue visibility over its own pages");
+            Assert(AboveWindow(page.Handle,bubble.Handle)&&bubble.TopMost,"returning to this application preserves interactive page priority");
             DialogueLayer.Synchronize(bubble,external,false);DialogueLayer.Synchronize(bubble,page.Handle,false);
-            Assert(AboveWindow(bubble.Handle,page.Handle),"repeated application switches restore the correct native dialogue layer");
+            Assert(AboveWindow(page.Handle,bubble.Handle),"repeated application switches preserve interactive page priority");
             Assert(GetForegroundWindow()==originalForeground&&GetCapture()==originalCapture&&Cursor.Position==originalCursor,"application layer transitions preserve focus, capture and pointer position");
+            page.Hide();
+            DialogueLayer.Synchronize(bubble,external,true);
+            Assert(bubble.TopMost,"explicit widget click raises the bubble even while another process has focus");
+            DialogueLayer.Synchronize(bubble,external,false);
+            Assert(bubble.TopMost,"maintenance keeps the clicked bubble visible until foreground changes");
+            DialogueLayer.Synchronize(bubble,IntPtr.Zero,false);
+            Assert(!bubble.TopMost,"a subsequent foreground change releases the clicked bubble layer");
+            page.Show(widget);
             widget.TopMost=false;
             Assert(!widget.TopMost&&(WindowStyle(widget.Handle,-20)&8)==0,"dialogue layer transitions do not pin the widget as a side effect");
             LayerPosition(page.Handle,new IntPtr(-1),0,0,0,0,0x213);bubble.Dismiss();bubble.MaintainLayer();

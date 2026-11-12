@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.Drawing.Drawing2D;
@@ -97,6 +97,7 @@ namespace MiyouDaily
         {PaintSurface(e.Graphics);base.OnPaint(e);}
         internal void PaintSurface(Graphics g)
         {
+            if(PopupSurface.Contains(FindForm())){g.Clear(PopupSurface.ClearColor);return;}
             // Cache the HDD light field and scans; transparent children replay
             // the same artwork without repainting other controls.
             if(Width<1||Height<1)return;
@@ -158,7 +159,7 @@ namespace MiyouDaily
         protected override void OnPaint(PaintEventArgs e)
         {
             Theme.PaintBehind(this,e.Graphics);
-            var g=e.Graphics;g.SmoothingMode=SmoothingMode.AntiAlias;float z=g.DpiX/96f;
+            var g=e.Graphics;g.SmoothingMode=SmoothingMode.AntiAlias;float z=UiRendering.PixelDpi(g)/96f;
             var fill=!Enabled?Color.FromArgb(13,28,48):Primary?(hover?Color.FromArgb(35,115,202):Color.FromArgb(24,81,156)):(hover?Color.FromArgb(24,61,104):Color.FromArgb(13,37,69));
             if(Width<8||Height<8)return;
             float top=pressed&&Enabled?3*z:1.5f*z;
