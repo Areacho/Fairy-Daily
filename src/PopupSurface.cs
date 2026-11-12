@@ -21,8 +21,11 @@ namespace MiyouDaily
         readonly FrameWindow presentation=new FrameWindow();
         readonly HashSet<Control> watched=new HashSet<Control>();
         readonly Timer caretTimer=new Timer{Interval=500};
-        bool disposed,rendering,queued;
+        bool disposed,rendering,queued,interactiveMove,deferredFrame;
+        Size renderedSize,renderedClientSize;
+        int renderedDpi,chromeHover=-1;
         double opacity=Theme.PopupOpacity;
+        internal int CompositionCount {get;private set;}
         internal static PopupSurface Attach(Form host)
         {
             PopupSurface value;if(surfaces.TryGetValue(host,out value))return value;
@@ -31,7 +34,7 @@ namespace MiyouDaily
         internal static bool Contains(Form host){PopupSurface value;return host!=null&&surfaces.TryGetValue(host,out value);}
         internal static bool IsBackground(Form form){return form is FrameWindow;}
         internal Form Background {get{return presentation;}}
-        internal double Opacity {get{return opacity;}set{opacity=Math.Max(0,Math.Min(1,value));RequestFrame();}}
+        internal double Opacity {get{return opacity;}set{double next=Math.Max(0,Math.Min(1,value));if(next==opacity)return;opacity=next;RequestFrame();}}
         PopupSurface(Form host)
         {
             this.host=host;host.TransparencyKey=Color.Empty;host.BackColor=Color.Black;host.Opacity=InputOpacity;
@@ -45,54 +48,93 @@ namespace MiyouDaily
             if(!watched.Add(control))return;
             control.ControlAdded+=ChildAdded;control.Disposed+=ChildDisposed;
             control.Invalidated+=Invalidated;control.Layout+=LayoutChanged;
-            control.VisibleChanged+=Changed;control.TextChanged+=Changed;control.Paint+=Painted;
+            control.VisibleChanged+=Changed;control.TextChanged+=Changed;
             control.GotFocus+=Changed;control.LostFocus+=Changed;control.KeyUp+=KeyboardChanged;control.MouseUp+=MouseChanged;
+            var scroll=control as ScrollableControl;if(scroll!=null)scroll.Scroll+=Scrolled;
+            var rich=control as RichTextBox;if(rich!=null){rich.VScroll+=Changed;rich.HScroll+=Changed;rich.SelectionChanged+=Changed;}
+            if(control is TextBoxBase)control.MouseMove+=EditorMouseMoved;
             foreach(Control child in control.Controls)Watch(child);
         }
         void Unwatch(Control control)
         {
             control.ControlAdded-=ChildAdded;control.Disposed-=ChildDisposed;
             control.Invalidated-=Invalidated;control.Layout-=LayoutChanged;
-            control.VisibleChanged-=Changed;control.TextChanged-=Changed;control.Paint-=Painted;watched.Remove(control);
+            control.VisibleChanged-=Changed;control.TextChanged-=Changed;watched.Remove(control);
             control.GotFocus-=Changed;control.LostFocus-=Changed;control.KeyUp-=KeyboardChanged;control.MouseUp-=MouseChanged;
+            var scroll=control as ScrollableControl;if(scroll!=null)scroll.Scroll-=Scrolled;
+            var rich=control as RichTextBox;if(rich!=null){rich.VScroll-=Changed;rich.HScroll-=Changed;rich.SelectionChanged-=Changed;}
+            if(control is TextBoxBase)control.MouseMove-=EditorMouseMoved;
         }
         void ChildAdded(object sender,ControlEventArgs e){Watch(e.Control);RequestFrame();}
         void ChildDisposed(object sender,EventArgs e){Unwatch((Control)sender);RequestFrame();}
         void Invalidated(object sender,InvalidateEventArgs e){RequestFrame();}
         void LayoutChanged(object sender,LayoutEventArgs e){RequestFrame();}
-        void Painted(object sender,PaintEventArgs e){RequestFrame();}
+        void Scrolled(object sender,ScrollEventArgs e){RequestFrame();}
+        void EditorMouseMoved(object sender,MouseEventArgs e){if(((Control)sender).Capture)RequestFrame();}
         void KeyboardChanged(object sender,KeyEventArgs e){RequestFrame();}
         void MouseChanged(object sender,MouseEventArgs e){RequestFrame();}
-        void Changed(object sender,EventArgs e){Sync();}
+        void Changed(object sender,EventArgs e){Sync();RequestFrame();}
         void Created(object sender,EventArgs e){AssignHandle(host.Handle);Sync();}
-        void Destroyed(object sender,EventArgs e){ReleaseHandle();presentation.Hide();}
+        void Destroyed(object sender,EventArgs e){ReleaseHandle();presentation.Hide();interactiveMove=false;deferredFrame=false;renderedDpi=0;}
         void HostDisposed(object sender,EventArgs e){Dispose();}
         protected override void WndProc(ref Message message)
         {
+            if(message.Msg==0x231)interactiveMove=true; // WM_ENTERSIZEMOVE
             base.WndProc(ref message);
-            if(message.Msg==0x47||message.Msg==0x18||message.Msg==0x86||message.Msg==0xa0||message.Msg==0x2a2)Sync();
+            if(message.Msg==0x47||message.Msg==0x18||message.Msg==0x86)Sync();
+            if(message.Msg==0xa0||message.Msg==0x2a2)UpdateChromeHover();
+            if(message.Msg==0x232) // WM_EXITSIZEMOVE
+            {
+                interactiveMove=false;Sync();UpdateChromeHover();
+                if(deferredFrame){deferredFrame=false;RequestFrame();}
+            }
+        }
+        bool GeometryChanged()
+        {return !presentation.Visible||renderedDpi!=host.DeviceDpi||renderedSize!=host.Size||renderedClientSize!=host.ClientSize;}
+        void UpdateChromeHover()
+        {
+            if(disposed||!host.IsHandleCreated||host.FormBorderStyle==FormBorderStyle.None)return;
+            using(var dpi=new WindowDpiScope(host))
+            {
+                var bounds=VisibleBounds();var cursor=Cursor.Position;int hover=-1;
+                if(cursor.Y>=bounds.Top&&cursor.Y<host.PointToScreen(Point.Empty).Y&&cursor.X>=bounds.Left&&cursor.X<bounds.Right)
+                {
+                    int width=WindowLayout.Pixels(46,host.DeviceDpi),buttons=host.ControlBox?(host.MinimizeBox||host.MaximizeBox?3:1):0;
+                    int index=2-(bounds.Right-1-cursor.X)/width;if(index>=3-buttons)hover=index;
+                }
+                if(hover!=chromeHover){chromeHover=hover;RequestFrame();}
+            }
         }
         internal void Sync()
         {
             if(disposed||rendering)return;
-            if(!host.Visible||!host.IsHandleCreated||host.Opacity==0||host.WindowState==FormWindowState.Minimized){presentation.Hide();return;}
-            if(presentation.Visible){presentation.MoveTo(VisibleBounds().Location);AlignFrame();}
-            RequestFrame();
+            using(var dpi=new WindowDpiScope(host))
+            {
+                if(!host.Visible||!host.IsHandleCreated||host.Opacity==0||host.WindowState==FormWindowState.Minimized){presentation.Hide();interactiveMove=false;deferredFrame=false;return;}
+                if(presentation.Visible){presentation.MoveTo(VisibleBounds().Location);AlignFrame();}
+                // Position and Z-order changes reuse the already presented pixels.
+                // A large frame must not be captured twice for every mouse move.
+                if(GeometryChanged())RequestFrame();
+            }
         }
         void RequestFrame()
         {
             if(disposed||rendering||queued||!host.IsHandleCreated||!host.Visible)return;
+            if(interactiveMove&&!GeometryChanged()){deferredFrame=true;return;}
             queued=true;host.BeginInvoke(new Action(()=>{queued=false;RenderNow();}));
         }
         internal void RenderNow()
         {
             if(disposed||rendering||!host.Visible||host.Opacity==0||host.WindowState==FormWindowState.Minimized)return;
+            if(interactiveMove&&!GeometryChanged()){deferredFrame=true;return;}
+            using(var dpi=new WindowDpiScope(host))
             using(var frame=ComposeFrame())
             {
                 // Replace pixels, size and position atomically, including pixels
                 // exposed when an animated dialogue shrinks.
                 presentation.Owner=host;presentation.Present(frame,VisibleBounds().Location);
                 if(!presentation.Visible)presentation.Show(host);
+                renderedSize=host.Size;renderedClientSize=host.ClientSize;renderedDpi=host.DeviceDpi;
                 AlignFrame();
             }
         }
@@ -112,50 +154,54 @@ namespace MiyouDaily
         {return control is ButtonBase||control is TextBoxBase||control is DigitalTimePicker||control is GameTile||control is HeyboxTile||control is FairyPanelButton;}
         internal Bitmap ComposeFrame()
         {
-            rendering=true;int previousDpi=RenderingDpi;RenderingDpi=host.DeviceDpi;
-            try
+            using(var dpi=new WindowDpiScope(host))
             {
-                var bounds=new Rectangle(Point.Empty,host.Size);
-                var client=host.RectangleToScreen(host.ClientRectangle);client.Offset(-host.Left,-host.Top);
-                var visible=VisibleBounds();visible.Offset(-host.Left,-host.Top);visible.Intersect(bounds);
-                using(var black=new Bitmap(bounds.Width,bounds.Height,PixelFormat.Format32bppArgb))
-                using(var white=new Bitmap(bounds.Width,bounds.Height,PixelFormat.Format32bppArgb))
-                using(var backdrop=new Bitmap(bounds.Width,bounds.Height,PixelFormat.Format32bppArgb))
-                using(var mask=new Bitmap(bounds.Width,bounds.Height,PixelFormat.Format32bppArgb))
+                CompositionCount++;
+                rendering=true;int previousDpi=RenderingDpi;RenderingDpi=host.DeviceDpi;
+                try
                 {
-                    black.SetResolution(host.DeviceDpi,host.DeviceDpi);white.SetResolution(host.DeviceDpi,host.DeviceDpi);
-                    backdrop.SetResolution(host.DeviceDpi,host.DeviceDpi);mask.SetResolution(host.DeviceDpi,host.DeviceDpi);
-                    // Two mattes recover antialiased glyph/edge coverage, so
-                    // partially transparent pixels have no colour-key fringes.
-                    whiteMatte=false;host.DrawToBitmap(black,bounds);
-                    whiteMatte=true;host.DrawToBitmap(white,bounds);whiteMatte=false;
-                    using(var g=Graphics.FromImage(backdrop)){g.TranslateTransform(client.X,client.Y);Theme.HddBackground(g,host.ClientRectangle);}
-                    using(var g=Graphics.FromImage(mask)){g.Clear(Color.White);ComponentMask(host,g,client);}
-                    var b=Pixels(black);var w=Pixels(white);var bg=Pixels(backdrop);var alpha=Pixels(mask);
-                    for(int y=0;y<bounds.Height;y++)for(int x=0;x<bounds.Width;x++)
+                    var bounds=new Rectangle(Point.Empty,host.Size);
+                    var client=host.RectangleToScreen(host.ClientRectangle);client.Offset(-host.Left,-host.Top);
+                    var visible=VisibleBounds();visible.Offset(-host.Left,-host.Top);visible.Intersect(bounds);
+                    using(var black=new Bitmap(bounds.Width,bounds.Height,PixelFormat.Format32bppArgb))
+                    using(var white=new Bitmap(bounds.Width,bounds.Height,PixelFormat.Format32bppArgb))
+                    using(var backdrop=new Bitmap(bounds.Width,bounds.Height,PixelFormat.Format32bppArgb))
+                    using(var mask=new Bitmap(bounds.Width,bounds.Height,PixelFormat.Format32bppArgb))
                     {
-                        int i=(y*bounds.Width+x)*4;
-                        if(!client.Contains(x,y)){b[i+3]=255;continue;}
-                        double coverage=1-Math.Max(0,Math.Min(1,((w[i]-b[i])+(w[i+1]-b[i+1])+(w[i+2]-b[i+2]))/765.0));
-                        double foreground=alpha[i]/255.0,remaining=opacity*(1-coverage*foreground);
-                        for(int c=0;c<3;c++)b[i+c]=(byte)Math.Min(255,Math.Round(b[i+c]*foreground+bg[i+c]*remaining));
-                        b[i+3]=(byte)Math.Round(255*(coverage*foreground+remaining));
+                        black.SetResolution(host.DeviceDpi,host.DeviceDpi);white.SetResolution(host.DeviceDpi,host.DeviceDpi);
+                        backdrop.SetResolution(host.DeviceDpi,host.DeviceDpi);mask.SetResolution(host.DeviceDpi,host.DeviceDpi);
+                        // Two mattes recover antialiased glyph/edge coverage, so
+                        // partially transparent pixels have no colour-key fringes.
+                        whiteMatte=false;host.DrawToBitmap(black,bounds);
+                        whiteMatte=true;host.DrawToBitmap(white,bounds);whiteMatte=false;
+                        using(var g=Graphics.FromImage(backdrop)){g.TranslateTransform(client.X,client.Y);Theme.HddBackground(g,host.ClientRectangle);}
+                        using(var g=Graphics.FromImage(mask)){g.Clear(Color.White);ComponentMask(host,g,client);}
+                        var b=Pixels(black);var w=Pixels(white);var bg=Pixels(backdrop);var alpha=Pixels(mask);
+                        for(int y=0;y<bounds.Height;y++)for(int x=0;x<bounds.Width;x++)
+                        {
+                            int i=(y*bounds.Width+x)*4;
+                            if(!client.Contains(x,y)){b[i+3]=255;continue;}
+                            double coverage=1-Math.Max(0,Math.Min(1,((w[i]-b[i])+(w[i+1]-b[i+1])+(w[i+2]-b[i+2]))/765.0));
+                            double foreground=alpha[i]/255.0,remaining=opacity*(1-coverage*foreground);
+                            for(int c=0;c<3;c++)b[i+c]=(byte)Math.Min(255,Math.Round(b[i+c]*foreground+bg[i+c]*remaining));
+                            b[i+3]=(byte)Math.Round(255*(coverage*foreground+remaining));
+                        }
+                        var result=new Bitmap(bounds.Width,bounds.Height,PixelFormat.Format32bppPArgb);
+                        var data=result.LockBits(bounds,ImageLockMode.WriteOnly,PixelFormat.Format32bppPArgb);
+                        try{Marshal.Copy(b,0,data.Scan0,b.Length);}finally{result.UnlockBits(data);}
+                        if(host.Region!=null)using(var g=Graphics.FromImage(result))
+                        {
+                            g.CompositingMode=System.Drawing.Drawing2D.CompositingMode.SourceCopy;
+                            g.ExcludeClip(host.Region);using(var clear=new SolidBrush(Color.Transparent))g.FillRectangle(clear,bounds);
+                        }
+                        PaintChrome(result,client,visible);
+                        PaintCaret(result);
+                        if(visible==bounds)return result;
+                        try{return result.Clone(visible,PixelFormat.Format32bppPArgb);}finally{result.Dispose();}
                     }
-                    var result=new Bitmap(bounds.Width,bounds.Height,PixelFormat.Format32bppPArgb);
-                    var data=result.LockBits(bounds,ImageLockMode.WriteOnly,PixelFormat.Format32bppPArgb);
-                    try{Marshal.Copy(b,0,data.Scan0,b.Length);}finally{result.UnlockBits(data);}
-                    if(host.Region!=null)using(var g=Graphics.FromImage(result))
-                    {
-                        g.CompositingMode=System.Drawing.Drawing2D.CompositingMode.SourceCopy;
-                        g.ExcludeClip(host.Region);using(var clear=new SolidBrush(Color.Transparent))g.FillRectangle(clear,bounds);
-                    }
-                    PaintChrome(result,client,visible);
-                    PaintCaret(result);
-                    if(visible==bounds)return result;
-                    try{return result.Clone(visible,PixelFormat.Format32bppPArgb);}finally{result.Dispose();}
                 }
+                finally{whiteMatte=false;RenderingDpi=previousDpi;rendering=false;}
             }
-            finally{whiteMatte=false;RenderingDpi=previousDpi;rendering=false;}
         }
         static TextBoxBase FocusedEditor(Control control)
         {
@@ -174,10 +220,18 @@ namespace MiyouDaily
         }
         internal Rectangle VisibleBounds()
         {
-            if(host.FormBorderStyle==FormBorderStyle.None)return host.Bounds;
-            NativeRect rect;
-            return DwmGetWindowAttribute(host.Handle,9,out rect,Marshal.SizeOf(typeof(NativeRect)))==0?
-                Rectangle.FromLTRB(rect.Left,rect.Top,rect.Right,rect.Bottom):host.Bounds;
+            using(var dpi=new WindowDpiScope(host))
+            {
+                if(host.FormBorderStyle==FormBorderStyle.None)return host.Bounds;
+                NativeRect rect;
+                if(DwmGetWindowAttribute(host.Handle,9,out rect,Marshal.SizeOf(typeof(NativeRect)))!=0)return host.Bounds;
+                // DWM always reports physical pixels. The native input window may
+                // use virtualized coordinates (including compatibility DPI modes).
+                // Position, crop and hit areas must all use that window's space.
+                var topLeft=new NativePoint{X=rect.Left,Y=rect.Top};var bottomRight=new NativePoint{X=rect.Right,Y=rect.Bottom};
+                if(!PhysicalToLogicalPointForPerMonitorDPI(host.Handle,ref topLeft)||!PhysicalToLogicalPointForPerMonitorDPI(host.Handle,ref bottomRight))return host.Bounds;
+                return Rectangle.FromLTRB(topLeft.X,topLeft.Y,bottomRight.X,bottomRight.Y);
+            }
         }
         void PaintChrome(Bitmap image,Rectangle client,Rectangle visible)
         {
@@ -268,6 +322,13 @@ namespace MiyouDaily
                 finally{if(old!=IntPtr.Zero)SelectObject(dc,old);if(image!=IntPtr.Zero)DeleteObject(image);DeleteDC(dc);ReleaseDC(IntPtr.Zero,screen);}
             }
         }
+        struct WindowDpiScope : IDisposable
+        {
+            readonly IntPtr previous;
+            internal WindowDpiScope(Form window)
+            {previous=window.IsHandleCreated?SetThreadDpiAwarenessContext(GetWindowDpiAwarenessContext(window.Handle)):IntPtr.Zero;}
+            public void Dispose(){if(previous!=IntPtr.Zero)SetThreadDpiAwarenessContext(previous);}
+        }
         [StructLayout(LayoutKind.Sequential)]struct NativePoint{public int X,Y;}
         [StructLayout(LayoutKind.Sequential)]struct NativeRect{public int Left,Top,Right,Bottom;}
         [StructLayout(LayoutKind.Sequential)]struct NativeSize{public int Width,Height;}
@@ -284,5 +345,8 @@ namespace MiyouDaily
         [DllImport("user32.dll",EntryPoint="GetWindowLongW")]static extern int GetWindowLong(IntPtr window,int index);
         [DllImport("user32.dll")]static extern bool SetWindowPos(IntPtr window,IntPtr after,int x,int y,int width,int height,uint flags);
         [DllImport("user32.dll")]static extern bool GetCaretPos(out NativePoint point);
+        [DllImport("user32.dll")]static extern bool PhysicalToLogicalPointForPerMonitorDPI(IntPtr window,ref NativePoint point);
+        [DllImport("user32.dll")]static extern IntPtr GetWindowDpiAwarenessContext(IntPtr window);
+        [DllImport("user32.dll")]static extern IntPtr SetThreadDpiAwarenessContext(IntPtr context);
     }
 }
