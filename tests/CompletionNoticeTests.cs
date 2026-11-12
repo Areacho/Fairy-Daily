@@ -29,7 +29,7 @@ partial class Tests
             var dialogue=(FairyDialogue)typeof(FairyWidget).GetField("dialogue",BindingFlags.NonPublic|BindingFlags.Instance).GetValue(widget);
             Assert(!widget.DeliverCompletion(failure,false)&&!dialogue.Visible&&SpeechBus.IsPending(store,failure,DateTimeOffset.UtcNow),"locked or unavailable desktop defers the dialogue without consuming its notification");
             widget.PollNotifications(true);
-            Assert(dialogue.Visible&&dialogue.TopMost&&!dialogue.Controls.OfType<TableLayoutPanel>().Single().Visible,"pending completion is displayed above other windows as a message-only dialogue");
+            Assert(dialogue.Visible&&dialogue.Owner==null&&!dialogue.Controls.OfType<TableLayoutPanel>().Single().Visible,"pending completion is displayed as an independent message-only dialogue");
             Assert(dialogue.Controls.OfType<Label>().Single().Text==failure.Text&&!SpeechBus.IsPending(store,failure,DateTimeOffset.UtcNow),"the displayed completion contains the persisted result and records delivery");
             dialogue.HideNow();widget.PollNotifications(true);Assert(!dialogue.Visible,"polling again does not reopen an acknowledged completion dialogue");
             var success=CheckinNotifications.Publish(store,settings,new RunSummary(),false);widget.DeliverCompletion(success,true);

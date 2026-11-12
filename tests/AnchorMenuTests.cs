@@ -35,7 +35,7 @@ partial class Tests
             widget.Say("主人，签到已完成。");bubble.Say("主人，8 秒后退出挂件。",true);bubble.ShowFor(widget);
             Assert(bubble.Location==origin,"normal and extended notification layouts keep the same position");
             bubble.ShowFor(panel);panel.Location=new Point(area.Left+40,area.Top+40);
-            Assert(bubble.Owner==widget&&bubble.Location==origin,"a page cannot replace the widget as the bubble owner or anchor");
+            Assert(bubble.Owner==null&&bubble.Location==origin,"an independent bubble stays anchored to the widget when a page requests it");
             widget.OpenModule(FairySection.Schedule);var module=(FairyModuleForm)typeof(FairyWidget).GetField("module",BindingFlags.NonPublic|BindingFlags.Instance).GetValue(widget);
             module.Location=new Point(area.Left+50,area.Top+60);module.Navigate(FairySection.Checkin,false);
             Assert(bubble.Location==origin,"moving and switching module pages leaves the bubble beside the widget");

@@ -31,7 +31,7 @@ namespace MiyouDaily
         {
             SuspendLayout();
             this.panel=panel;Text="Fairy · 快捷对话";Icon=AppAssets.Icon;Font=AppFonts.Create(10);
-            FormBorderStyle=FormBorderStyle.None;ShowInTaskbar=false;StartPosition=FormStartPosition.Manual;BackColor=Theme.Surface;DoubleBuffered=true;Opacity=Theme.PopupOpacity;TopMost=true;
+            FormBorderStyle=FormBorderStyle.None;ShowInTaskbar=false;StartPosition=FormStartPosition.Manual;BackColor=Theme.Surface;DoubleBuffered=true;Opacity=Theme.PopupOpacity;
             ClientSize=new Size(480,126);AutoScaleDimensions=new SizeF(96,96);AutoScaleMode=AutoScaleMode.Dpi;
             var close=new RoundButton{Text="×",Size=new Size(29,29),Location=new Point(439,10),Anchor=AnchorStyles.Top|AnchorStyles.Right};close.Click+=(s,e)=>Dismiss();Controls.Add(close);
             message=new SmoothLabel{Location=new Point(24,30),Size=new Size(354,68),ForeColor=Theme.Text,BackColor=Color.Transparent,Font=AppFonts.Create(11,FontStyle.Bold)};Controls.Add(message);
@@ -76,7 +76,9 @@ namespace MiyouDaily
         public void ShowFor(Form widget)
         {
             if(IsDisposed)return;PlaceNear(widget);
-            if(!Visible){if(anchor==null)Show();else Show(anchor);}
+            // Position follows the widget, but native ownership would inherit
+            // its pinned window band and prevent other applications covering us.
+            if(!Visible)Show();
             DialogueLayer.Raise(this);
         }
         internal void MaintainLayer(){if(mode!=Mode.Closing)DialogueLayer.Maintain(this);}
