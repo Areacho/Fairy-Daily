@@ -3,11 +3,27 @@ using System.Collections.Generic;
 using System.Drawing;
 using System.IO;
 using System.Linq;
+using System.Runtime.InteropServices;
 using System.Windows.Forms;
 using MiyouDaily;
 
 partial class Tests
 {
+    // Windows CI desktops may be smaller than the virtual work area. Bypass
+    // only the offscreen test window's native tracking limit, not OS settings.
+    sealed class VirtualRenderBounds : NativeWindow,IDisposable
+    {
+        [StructLayout(LayoutKind.Sequential)]struct Limits{public Point Reserved,MaxSize,MaxPosition,MinTrackSize,MaxTrackSize;}
+        public VirtualRenderBounds(Form form){AssignHandle(form.Handle);}
+        protected override void WndProc(ref Message message)
+        {
+            base.WndProc(ref message);
+            if(message.Msg!=0x24)return;
+            var limits=(Limits)Marshal.PtrToStructure(message.LParam,typeof(Limits));
+            limits.MaxSize=limits.MaxTrackSize=new Point(32767,32767);Marshal.StructureToPtr(limits,message.LParam,false);
+        }
+        public void Dispose(){ReleaseHandle();}
+    }
     static string DisplayReviewDirectory()
     {
         var directory=new DirectoryInfo(AppDomain.CurrentDomain.BaseDirectory);
@@ -65,7 +81,9 @@ partial class Tests
                     using(var carrier=new PassiveForm{FormBorderStyle=FormBorderStyle.None,AutoScaleMode=AutoScaleMode.None,ShowInTaskbar=false,StartPosition=FormStartPosition.Manual,Location=new Point(-20000,-20000),ClientSize=fitted.Size,Font=module.Font})
                     {
                         var surface=PopupSurface.Attach(carrier);carrier.Opacity=0;
-                        carrier.Controls.Add(root);root.Dock=DockStyle.Fill;carrier.Show();SetChildDpi(carrier,dpi);carrier.PerformLayout();root.PerformLayout();
+                        carrier.Controls.Add(root);root.Dock=DockStyle.Fill;carrier.Show();
+                        using(var limits=new VirtualRenderBounds(carrier))LayerPosition(carrier.Handle,IntPtr.Zero,-20000,-20000,fitted.Width,fitted.Height,0x214);
+                        SetChildDpi(carrier,dpi);carrier.PerformLayout();root.PerformLayout();
                         Assert(carrier.ClientSize==fitted.Size&&area.Contains(fitted),"complete "+section+" frame fits "+screen+" at "+dpi+" DPI");
                         var tiles=FindControls(carrier).Where(c=>c is GameTile||c is HeyboxTile).ToArray();
                         Assert(tiles.All(tile=>tile.Controls.Cast<Control>().All(c=>tile.ClientRectangle.Contains(c.Bounds))),"platform switches stay inside their cards at "+dpi+" DPI on "+screen);
@@ -102,6 +120,8 @@ partial class Tests
                     {
                         carrier.Show();bubble.ShowFor(carrier);bubble.Opacity=0;SetChildDpi(bubble,dpi);
                         bubble.ClientSize=WindowLayout.Pixels(new Size(480,116),dpi);
+                        var size=WindowLayout.Pixels(new Size(480,116),dpi);
+                        using(var limits=new VirtualRenderBounds(bubble))LayerPosition(bubble.Handle,IntPtr.Zero,bubble.Left,bubble.Top,size.Width,size.Height,0x214);
                         PopupSurface.Attach(bubble).Opacity=Theme.PopupOpacity;
                         var icon=FindControls(bubble).OfType<FairyPanelButton>().Single();
                         var actions=bubble.Controls.OfType<TableLayoutPanel>().Single();
