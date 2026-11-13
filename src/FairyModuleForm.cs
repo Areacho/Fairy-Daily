@@ -123,7 +123,7 @@ namespace MiyouDaily
             body.Layout+=(s,e)=>UpdateScrollMetrics();
             ScrollbarTheme.Attach(body);
             float z=LayoutScale;Size size;
-            switch(target){case FairySection.MiyouTasks:size=new Size(860,650);break;case FairySection.HeyboxTasks:size=new Size(600,460);break;case FairySection.MiyouOptions:size=new Size(740,600);break;case FairySection.HeyboxOptions:size=new Size(560,360);break;case FairySection.Schedule:size=new Size(620,560);break;case FairySection.Login:case FairySection.Checkin:size=new Size(580,310);break;case FairySection.MiyouAccount:case FairySection.HeyboxAccount:size=new Size(600,340);break;default:size=new Size(600,370);break;}
+            switch(target){case FairySection.MiyouTasks:size=new Size(860,650);break;case FairySection.HeyboxTasks:size=new Size(600,460);break;case FairySection.MiyouOptions:size=new Size(740,600);break;case FairySection.HeyboxOptions:size=new Size(560,360);break;case FairySection.Schedule:size=new Size(620,650);break;case FairySection.Login:case FairySection.Checkin:size=new Size(580,310);break;case FairySection.MiyouAccount:case FairySection.HeyboxAccount:size=new Size(600,340);break;default:size=new Size(600,370);break;}
             MinimumSize=new Size((int)((target==FairySection.MiyouTasks?820:520)*z),(int)((target==FairySection.MiyouTasks?600:280)*z));
             ClientSize=new Size((int)(size.Width*z),(int)(size.Height*z));
             UpdateHeader();UpdateScrollMetrics();
@@ -214,6 +214,9 @@ namespace MiyouDaily
             var status=Status(panel.HasDailySchedule?"● 每日定时已开启 · "+config.DailyTime:"○ 每日定时尚未开启",36);
             var startup=new ToggleButton{Text="登录 Windows 后启动 Fairy",AccessibleName="定时页开机自启",Checked=StartupManager.IsEnabled()};Row(startup,42);
             bool syncing=false;startup.CheckedChanged+=(s,e)=>{if(syncing)return;try{panel.SetModuleStartup(startup.Checked);}catch(Exception ex){panel.Tell("主人，自启设置需要处理："+ex.Message);}finally{syncing=true;startup.Checked=StartupManager.IsEnabled();syncing=false;}};
+            var startupSign=new ToggleButton{Text="随程序启动执行签到",AccessibleName="随程序启动执行签到",AccessibleDescription="启动后等待网络并验证登录，仅处理已登录平台；下次启动生效",Checked=config.CheckinOnStartup};Row(startupSign,42);
+            bool syncingSign=false;startupSign.CheckedChanged+=(s,e)=>{if(syncingSign)return;try{panel.SetModuleStartupCheckin(startupSign.Checked);}catch(Exception ex){panel.Tell("主人，启动签到设置需要处理："+ex.Message);}finally{syncingSign=true;startupSign.Checked=panel.ModuleSettings.CheckinOnStartup;syncingSign=false;}};
+            Status("联网并验证账号后执行 · 本开关从下次启动生效",34);
             var autoExit=new ToggleButton{Text="全部签到完成后自动退出挂件",AccessibleName="签到完成后自动退出挂件",Checked=config.ExitWidgetAfterCheckin};Row(autoExit,42);
             bool syncingExit=false;autoExit.CheckedChanged+=(s,e)=>{if(syncingExit)return;try{panel.SetModuleAutoExit(autoExit.Checked);}catch(Exception ex){panel.Tell("主人，退出设置需要处理："+ex.Message);}finally{syncingExit=true;autoExit.Checked=panel.ModuleSettings.ExitWidgetAfterCheckin;syncingExit=false;}};
             Status("先显示完成气泡，8 秒后退出 · 每日定时继续保留",34);

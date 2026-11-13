@@ -53,7 +53,9 @@ namespace MiyouDaily
                     try
                     {
                         if(!WidgetSession.BeginLaunch(store,args.Contains("--notify")))return 0;
-                        var panel=new MainForm(store,settings);var widget=new FairyWidget(store,panel);Application.Run(widget);
+                        var panel=new MainForm(store,settings);var widget=new FairyWidget(store,panel);
+                        if(StartupCheckin.ShouldRun(settings,args))widget.Shown+=async(s,e)=>await panel.RunStartupCheckin();
+                        Application.Run(widget);
                     }
                     finally{singleton.ReleaseMutex();}
                 }

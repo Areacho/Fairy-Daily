@@ -109,6 +109,7 @@ namespace MiyouDaily
         public string DeviceFp { get; set; }
         public string DailyTime { get; set; }
         public bool ExitWidgetAfterCheckin { get; set; }
+        public bool CheckinOnStartup { get; set; }
         public string[] Games { get; set; }
         public string[] Forums { get; set; }
         public string AppVersion { get; set; }
@@ -212,7 +213,7 @@ namespace MiyouDaily
         public FileStream AcquireRunLock()
         {
             try { return new FileStream(Path.Combine(Root, "run.lock"), FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None); }
-            catch (IOException) { throw new InvalidOperationException("另一项签到正在运行，请稍后查看日志。"); }
+            catch (IOException) { throw new RunBusyException(); }
         }
         public string LatestLog { get { return Path.Combine(Root, "logs", Clock.Day(Clock.ChinaNow) + ".log"); } }
         public void Log(string message)

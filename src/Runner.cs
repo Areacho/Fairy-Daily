@@ -32,12 +32,15 @@ namespace MiyouDaily
         {
             message = Store.Redact(message, cookie); store.Log(message); if (output != null) output(message);
         }
-        public async Task<RunSummary> Run(Settings settings, bool scheduled, CancellationToken cancel)
+        public Task<RunSummary> Run(Settings settings,bool scheduled,CancellationToken cancel){return RunCore(settings,scheduled,false,cancel);}
+        public Task<RunSummary> RunStartup(Settings settings,CancellationToken cancel){return RunCore(settings,false,true,cancel);}
+        async Task<RunSummary> RunCore(Settings settings,bool scheduled,bool startup,CancellationToken cancel)
         {
             using (store.AcquireRunLock())
             {
                 settings.Validate();
                 var summary = new RunSummary();
+                bool automatic=scheduled||startup;
                 if (scheduled && !Clock.IsDue(settings.DailyTime, Clock.ChinaNow)) { Log("尚未到北京时间 " + settings.DailyTime + "，本次无需执行。"); return summary; }
                 bool miyouSelected=settings.Games.Length+settings.Forums.Length>0;
                 cookie="";if(miyouSelected){try{cookie=store.Decrypt(settings);}catch(InvalidOperationException){Log("米游社登录状态无法解密，请重新登录。");}}
@@ -49,12 +52,12 @@ namespace MiyouDaily
                 bool migrated=false;string account = cookie.Length==0?"":AccountScope.Prepare(state,cookie,out migrated);
                 if(migrated)store.SaveState(state);
                 var api = new MiyouApi(settings, cookie, transport);
-                Log((scheduled ? "定时" : "手动") + "签到开始（北京时间 " + day + "）。");
+                Log((startup?"启动":scheduled ? "定时" : "手动") + "签到开始（北京时间 " + day + "）。");
                 foreach (var game in Catalog.Games.Where(x => cookie.Length>0 && settings.Games.Contains(x.Key)))
                 {
                     cancel.ThrowIfCancellationRequested();
                     string key = account + "game/" + game.Key;
-                    if (state.Skip(key, scheduled)) { summary.Skipped++; Log(game.Name + "：今日已完成，或已达自动重试上限；可手动重试待处理项。"); continue; }
+                    if (state.Skip(key, automatic)) { summary.Skipped++; Log(game.Name + "：今日已完成，或已达自动重试上限；可手动重试待处理项。"); continue; }
                     Attempt group; if (!state.Targets.TryGetValue(key, out group)) group = new Attempt();
                     group.Count++; state.Targets[key] = group;
                     // Persist before sending requests so a crash cannot cause unlimited retries.
@@ -70,7 +73,7 @@ namespace MiyouDaily
                             {
                                 string roleKey = key + "/" + Json.Str(role, "region") + "/" + Json.Str(role, "game_uid");
                                 string label = game.Name + " · " + Json.Str(role, "nickname") + "（" + Json.Str(role, "game_uid") + "）";
-                                if (state.Skip(roleKey, scheduled))
+                                if (state.Skip(roleKey, automatic))
                                 {
                                     var previous = state.Targets[roleKey];
                                     allComplete &= previous.Complete;
@@ -97,7 +100,7 @@ namespace MiyouDaily
                 foreach (string gid in cookie.Length==0?new string[0]:settings.Forums)
                 {
                     cancel.ThrowIfCancellationRequested(); string key = account + "forum/" + gid;
-                    if (state.Skip(key, scheduled)) { summary.Skipped++; continue; }
+                    if (state.Skip(key, automatic)) { summary.Skipped++; continue; }
                     var result = await Execute(state, key, "社区 · " + Catalog.Forums[gid], () => api.SignForum(gid, cancel), cancel).ConfigureAwait(false);
                     summary.Record(result);
                     await Task.Delay(1200, cancel).ConfigureAwait(false);
@@ -109,7 +112,7 @@ namespace MiyouDaily
                     {
                         heybox=HeyboxAccount.Load(settings);
                         if(heybox==null)throw new ApiException("小黑盒尚未登录，请打开“小黑盒签到”完成短信登录或导入配置。",true);
-                        if(state.Skip(heybox.Key,scheduled)){summary.Skipped++;Log("小黑盒：今日已完成，或需要手动处理。");}
+                        if(state.Skip(heybox.Key,automatic)){summary.Skipped++;Log("小黑盒：今日已完成，或需要手动处理。");}
                         else
                         {
                             // Keep this provider's errors and credentials isolated from Miyou.
