@@ -38,7 +38,8 @@ partial class Tests
             var loaded=DisplayPreferences.Load(store);Assert(loaded.Layout=="compact"&&loaded.EdgeQuality==3,"display preferences persist independently of account settings");
             layouts.SelectedIndex=2;Assert(grid.ColumnCount==4&&grid.RowCount==2,"wide main-panel layout restores four columns");
             var root=(TableLayoutPanel)panel.Controls[0];
-            Assert(root.Controls.Cast<Control>().All(c=>c.Right<=root.ClientSize.Width-root.Padding.Right+1),"main-panel rows stay inside the viewport after compact/wide layout changes; client="+root.ClientSize+", widest="+root.Controls.Cast<Control>().Max(c=>c.Right));
+            if(root.HorizontalScroll.Visible)root.AutoScrollPosition=new Point(root.HorizontalScroll.Maximum,root.VerticalScroll.Value);
+            Assert(root.Controls.Cast<Control>().All(c=>c.Right<=root.ClientSize.Width-root.Padding.Right+1),"main-panel right edges remain reachable after layout changes, including a small CI desktop; client="+root.ClientSize+", widest="+root.Controls.Cast<Control>().Max(c=>c.Right));
             using(var screenshot=new Bitmap(panel.Width,panel.Height)){panel.DrawToBitmap(screenshot,new Rectangle(Point.Empty,panel.Size));screenshot.Save(Path.Combine(DisplayReviewDirectory(),"main-v110.png"));}
             using(var widget=new FairyWidget(store,panel))
             {
