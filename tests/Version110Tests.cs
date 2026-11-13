@@ -30,14 +30,13 @@ partial class Tests
             Assert(preparedBeforeReveal&&panel.PreparedFrames==1&&panel.Opacity==1,"first main-panel show prepares the complete tree before revealing it");
             Assert((WindowStyle(panel.Handle,-20)&0x02000000)==0,"first-show buffering is removed before main-panel interaction");
             panel.Hide();panel.Show();Assert(panel.PreparedFrames==2,"reopening prepares the final layout before showing cached controls");
-            var layouts=FindControls(panel).OfType<ComboBox>().Single(c=>c.AccessibleName=="总面板显示布局");
-            var quality=FindControls(panel).OfType<ComboBox>().Single(c=>c.AccessibleName=="总面板挂件边缘质量");
-            layouts.SelectedIndex=1;quality.SelectedIndex=1;
+            Assert(!FindControls(panel).OfType<ComboBox>().Any()&&!FindControls(panel).OfType<RoundChoice>().Any(),"main panel exposes only a settings entry, without inline native display selectors");
+            panel.SaveDisplayOptions(new DisplayPreferences{Layout="compact"});
             var grid=FindControls(panel).OfType<TableLayoutPanel>().Single(t=>t.Controls.OfType<GameTile>().Any());
             Assert(grid.ColumnCount==2&&grid.RowCount==4,"compact main panel reflows the eight cards into two columns");
-            var loaded=DisplayPreferences.Load(store);Assert(loaded.Layout=="compact"&&loaded.EdgeQuality==3,"display preferences persist independently of account settings");
-            layouts.SelectedIndex=2;Assert(grid.ColumnCount==4&&grid.RowCount==2,"wide main-panel layout restores four columns");
-            var root=(TableLayoutPanel)panel.Controls[0];
+            var loaded=DisplayPreferences.Load(store);Assert(loaded.Layout=="compact"&&loaded.Resolution=="auto","display preferences persist independently of account settings");
+            panel.SaveDisplayOptions(new DisplayPreferences{Layout="wide"});Assert(grid.ColumnCount==4&&grid.RowCount==2,"wide main-panel layout restores four columns");
+            var root=panel.Controls.OfType<FairyBackdrop>().Single();
             if(root.HorizontalScroll.Visible)root.AutoScrollPosition=new Point(root.HorizontalScroll.Maximum,root.VerticalScroll.Value);
             Assert(root.Controls.Cast<Control>().All(c=>c.Right<=root.ClientSize.Width-root.Padding.Right+1),"main-panel right edges remain reachable after layout changes, including a small CI desktop; client="+root.ClientSize+", widest="+root.Controls.Cast<Control>().Max(c=>c.Right));
             using(var screenshot=new Bitmap(panel.Width,panel.Height)){panel.DrawToBitmap(screenshot,new Rectangle(Point.Empty,panel.Size));screenshot.Save(Path.Combine(DisplayReviewDirectory(),"main-v110.png"));}
@@ -107,11 +106,11 @@ partial class Tests
                     Assert(area.Contains(bounds)&&image.Width==bounds.Width&&image.Height==bounds.Height,"complete main-panel viewport fits its virtual work area: "+screen+" / "+dpi+" / "+mode+" / expected="+bounds.Size+", actual="+image.Size);
                     if(dpi==192||dpi==288)image.Save(Path.Combine(DisplayReviewDirectory(),screen.Width+"x"+screen.Height+"-"+dpi+"-main-"+mode+".png"));
                 }
-                var root=(ScrollableControl)panel.Controls[0];
+                var root=panel.Controls.OfType<FairyBackdrop>().Single();
                 foreach(var button in FindControls(panel).OfType<RoundButton>())
                 {
                     root.ScrollControlIntoView(button);var exposed=ExposedArea(button);
-                    Assert(exposed.Width>=button.Width-2&&exposed.Height>=Math.Min(button.Height,WindowLayout.Pixels(30,dpi)),"main-panel action remains reachable: "+button.Text+" / "+dpi+" / "+mode);
+                    Assert(exposed.Width>=button.Width-2&&exposed.Height>=Math.Min(button.Height,WindowLayout.Pixels(30,dpi)),"main-panel action remains reachable: "+button.Text+" / "+dpi+" / "+mode+"; button="+button.Bounds+", parent="+button.Parent.ClientRectangle+", exposed="+exposed.Size);
                 }
                 panel.AllowExit=true;panel.Close();cases++;
             }

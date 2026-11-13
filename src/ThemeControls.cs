@@ -222,20 +222,6 @@ namespace MiyouDaily
             catch{result.Dispose();throw;}
         }
     }
-    public sealed class ThemeComboBox : ComboBox
-    {
-        public ThemeComboBox(){DrawMode=DrawMode.OwnerDrawFixed;DropDownStyle=ComboBoxStyle.DropDownList;FlatStyle=FlatStyle.Flat;BackColor=Theme.Tile;ForeColor=Theme.Text;UpdateItemHeight();}
-        void UpdateItemHeight(){ItemHeight=Math.Max(Font.Height+4,WindowLayout.Pixels(25,DeviceDpi));}
-        protected override void OnFontChanged(EventArgs e){base.OnFontChanged(e);UpdateItemHeight();}
-        protected override void OnDpiChangedAfterParent(EventArgs e){base.OnDpiChangedAfterParent(e);UpdateItemHeight();}
-        protected override void OnDrawItem(DrawItemEventArgs e)
-        {
-            bool selected=(e.State&DrawItemState.Selected)!=0;
-            using(var brush=new SolidBrush(selected?Theme.Edge:Theme.Tile))e.Graphics.FillRectangle(brush,e.Bounds);
-            string text=e.Index>=0&&e.Index<Items.Count?GetItemText(Items[e.Index]):Text;
-            var bounds=e.Bounds;bounds.X+=5;bounds.Width=Math.Max(0,bounds.Width-10);UiRendering.Text(e.Graphics,text,Font,bounds,Theme.Text,false);
-        }
-    }
     public sealed class ToggleButton : CheckBox
     {
         public ToggleButton(){AutoSize=false;Appearance=Appearance.Button;SetStyle(ControlStyles.SupportsTransparentBackColor|ControlStyles.UserPaint|ControlStyles.OptimizedDoubleBuffer|ControlStyles.AllPaintingInWmPaint|ControlStyles.Opaque|ControlStyles.ResizeRedraw,true);BackColor=Color.Transparent;Cursor=Cursors.Hand;}

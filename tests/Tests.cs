@@ -247,10 +247,10 @@ partial class Tests
             Assert(form.Font.FontFamily.Name=="Miyou UI","application loads embedded Chinese and Latin UI font");
             form.CaptureSelection();
             Assert(config.Games.SequenceEqual(new[]{"genshin","zzz"}) && config.Forums.OrderBy(x=>x).SequenceEqual(new[]{"2","5"}),"unified game switches preserve existing configuration");
-            var timer=form.Controls[0].Controls.Cast<System.Windows.Forms.Control>().SelectMany(x=>x.Controls.Cast<System.Windows.Forms.Control>()).OfType<DigitalTimePicker>().Single();
+            var timer=FindControls(form).OfType<DigitalTimePicker>().Single();
             timer.Value=DateTime.Today.AddHours(18).AddMinutes(45);form.CaptureSelection();Assert(config.DailyTime=="18:45","digital timer selection is saved as the scheduled HH:mm time");
             timer.Value=DateTime.Today;form.CaptureSelection();
-            var grid=form.Controls[0].Controls.Cast<System.Windows.Forms.Control>().SelectMany(x=>x.Controls.Cast<System.Windows.Forms.Control>()).OfType<System.Windows.Forms.TableLayoutPanel>().Single(g=>g.Controls.OfType<GameTile>().Any());
+            var grid=FindControls(form).OfType<System.Windows.Forms.TableLayoutPanel>().Single(g=>g.Controls.OfType<GameTile>().Any());
             var tiles=grid.Controls.OfType<GameTile>().ToArray();
             Assert(tiles.Length==7 && tiles.Sum(x=>x.Controls.Count)==13,"seven icon categories expose six game and seven community switches");
             var tile=tiles.Single(x=>x.Key=="genshin");tile.GameSwitch.Checked=false;form.CaptureSelection();
@@ -480,6 +480,7 @@ partial class Tests
             if (args.Contains("--input-focus-check")) { InputFocusChecks();return 0; }
             if (args.Contains("--main-panel-check")) { MainPanelPerformanceChecks();return 0; }
             if (args.Contains("--main-display-check")) { MainDisplayMatrixChecks();return 0; }
+            if (args.Contains("--v111-check")) { Version111Checks();return 0; }
             if (args.Contains("--v110-check")) { Version110Checks();return 0; }
             if (args.Contains("--window-behavior-check")) { WindowBehaviorChecks();return 0; }
             if (args.Contains("--drag-benchmark")) { DragPerformanceChecks(false);return 0; }
@@ -492,7 +493,7 @@ partial class Tests
             if (args.Contains("--center-check")) { CenteredWindowChecks();return 0; }
             if (args.Contains("--probe-qr")) { ProbeQr().GetAwaiter().GetResult(); return 0; }
             if (args.Contains("--probe-heybox-token")) return ProbeHeyboxToken();
-            Basic(); ApiTests().GetAwaiter().GetResult(); PartialForumRetries().GetAwaiter().GetResult(); PartialRoleRetries().GetAwaiter().GetResult(); CompletionChecks().GetAwaiter().GetResult(); AccountScopeChecks().GetAwaiter().GetResult(); DataLocationChecks(); ScheduledNoticeChecks(); HeyboxChecks().GetAwaiter().GetResult(); CompletionNoticeChecks(); MotionNoticeChecks(); PopupSurfaceChecks(); DragPerformanceChecks(); MainPanelPerformanceChecks(); Version110Checks(); MainDisplayMatrixChecks(); WindowBehaviorChecks(); InputAlignmentChecks(); InputFocusChecks(); DialogueLayerChecks(); AutoExitChecks(); InterfaceChecks(); HddNavigationChecks(); CenteredWindowChecks(); AnchorMenuChecks(); ContextMenuChecks(); ScrollbarChecks(); HighDpiChecks(); DisplayMatrixChecks(); RenderingChecks(); DigitalClockChecks(); StartupChecks();
+            Basic(); ApiTests().GetAwaiter().GetResult(); PartialForumRetries().GetAwaiter().GetResult(); PartialRoleRetries().GetAwaiter().GetResult(); CompletionChecks().GetAwaiter().GetResult(); AccountScopeChecks().GetAwaiter().GetResult(); DataLocationChecks(); ScheduledNoticeChecks(); HeyboxChecks().GetAwaiter().GetResult(); CompletionNoticeChecks(); MotionNoticeChecks(); PopupSurfaceChecks(); DragPerformanceChecks(); MainPanelPerformanceChecks(); Version111Checks(); Version110Checks(); MainDisplayMatrixChecks(); WindowBehaviorChecks(); InputAlignmentChecks(); InputFocusChecks(); DialogueLayerChecks(); AutoExitChecks(); InterfaceChecks(); HddNavigationChecks(); CenteredWindowChecks(); AnchorMenuChecks(); ContextMenuChecks(); ScrollbarChecks(); HighDpiChecks(); DisplayMatrixChecks(); RenderingChecks(); DigitalClockChecks(); StartupChecks();
             string smoke = Path.GetFullPath(Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "..", "build", "scheduler-smoke.xml"));
             var xml = XDocument.Parse(Scheduler.MakeXml(Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "MiyouDaily.exe"), System.Security.Principal.WindowsIdentity.GetCurrent().User.Value, "09:00", Clock.ChinaNow));
             foreach (var enabled in xml.Descendants().Where(x => x.Name.LocalName == "Enabled")) enabled.Value = "false";

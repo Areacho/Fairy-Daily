@@ -20,6 +20,9 @@ namespace MiyouDaily
         readonly DigitalTimePicker time = new DigitalTimePicker();
         readonly ToggleButton autoStart = new ToggleButton();
         readonly RichTextBox log = new RichTextBox();
+        Panel accountCard;
+        Action layoutAccounts;
+        readonly RoundButton enableDaily=new RoundButton(),disableDaily=new RoundButton();
         readonly FlowLayoutPanel buttons = new BufferedFlowLayout();
         readonly Button cancel = new RoundButton();
         public event Action<string> SpeechRequested;
@@ -51,14 +54,14 @@ namespace MiyouDaily
             Text = "FAIRY / 日常事务代理"; Font = AppFonts.Create(10F); ForeColor = Ink; Icon=AppAssets.Icon;
             BackColor = Theme.Background;Opacity=1; Size = new Size(1080, 900); MinimumSize = new Size(980, 810);
             StartPosition = FormStartPosition.CenterScreen; AutoScaleDimensions=new SizeF(96,96);AutoScaleMode = AutoScaleMode.Dpi;
-            root = new FairyBackdrop { Dock = DockStyle.Fill, ColumnCount = 1, RowCount = 7, Padding = new Padding(26, 18, 26, 14),AutoScroll=true };
-            foreach(int height in new[]{82,142,340,52,56,32,180})root.RowStyles.Add(new RowStyle(SizeType.Absolute,height));
+            root = new FairyBackdrop { Dock = DockStyle.Fill, ColumnCount = 1, RowCount = 6, Padding = new Padding(26, 18, 26, 18),AutoScroll=true };
+            foreach(int height in new[]{90,146,164,340,60,190})root.RowStyles.Add(new RowStyle(SizeType.Absolute,height));
             Controls.Add(root);
-            ScrollbarTheme.Attach(root);
+            ScrollbarTheme.Attach(root,true);
             var heading = new FairyHeader();
             root.Controls.Add(heading, 0, 0);
 
-            var accountPanel = Card("01   账号接入");
+            var accountPanel = Card("01   账号接入");accountCard=accountPanel;
             var miyouName=new SmoothLabel{Text="米游社",BackColor=Color.Transparent,ForeColor=Accent,Font=AppFonts.Create(10,FontStyle.Bold),Location=new Point(18,40),Size=new Size(70,34)};
             var heyboxName=new SmoothLabel{Text="小黑盒",BackColor=Color.Transparent,ForeColor=Accent,Font=AppFonts.Create(10,FontStyle.Bold),Location=new Point(18,88),Size=new Size(70,34)};
             account.AccessibleName="米游社登录状态";heyboxAccount.AccessibleName="小黑盒登录状态";
@@ -69,22 +72,19 @@ namespace MiyouDaily
             var cookie = MakeButton("导入 Cookie", false);cookie.AccessibleName="米游社导入Cookie";cookie.Click += (s, e) => ImportCookie(); accountPanel.Controls.Add(cookie);
             var heyboxLogin=MakeButton("短信登录",true);heyboxLogin.AccessibleName="小黑盒短信登录";heyboxLogin.Click+=(s,e)=>OpenHeybox();accountPanel.Controls.Add(heyboxLogin);
             var heyboxImport=MakeButton("导入配置",false);heyboxImport.AccessibleName="小黑盒导入配置";heyboxImport.Click+=async(s,e)=>await ImportHeybox();accountPanel.Controls.Add(heyboxImport);
-            var timeLabel=new SmoothLabel { BackColor=Color.Transparent, Text = "每天 / 北京时间", TextAlign=ContentAlignment.MiddleCenter, Size=new Size(206,26) };accountPanel.Controls.Add(timeLabel);
-            time.Size=new Size(206,64);
-            var runtime=new RoundedPanel{Fill=Theme.Tile};
-            autoStart.Text="开机自启";autoStart.AccessibleName="开机自启开关";autoStart.AccessibleDescription="登录 Windows 后自动启动 Fairy 桌面挂件";autoStart.Checked=StartupManager.IsEnabled();runtime.Controls.Add(autoStart);
-            runtime.Layout+=(s,e)=>{float z=DeviceDpi/96f;autoStart.SetBounds((int)(10*z),(int)(3*z),runtime.Width-(int)(20*z),(int)(28*z));};
-            autoStart.CheckedChanged+=(s,e)=>ChangeStartup();accountPanel.Controls.Add(runtime);
-            accountPanel.Resize+=(s,e)=>{
-                float z=DeviceDpi/96f;time.Left=accountPanel.ClientSize.Width-time.Width-(int)(20*z);time.Top=(int)(34*z);
-                timeLabel.SetBounds(time.Left,(int)(5*z),time.Width,(int)(26*z));runtime.SetBounds(time.Left,(int)(101*z),time.Width,(int)(35*z));
-                cookie.Left=heyboxImport.Left=time.Left-(int)(20*z)-cookie.Width;qr.Left=heyboxLogin.Left=cookie.Left-(int)(8*z)-qr.Width;
+            layoutAccounts=()=>{
+                float z=DeviceDpi/96f;
+                miyouName.SetBounds((int)(18*z),(int)(40*z),(int)(70*z),(int)(34*z));heyboxName.SetBounds((int)(18*z),(int)(88*z),(int)(70*z),(int)(34*z));
+                foreach(var button in new[]{qr,cookie,heyboxLogin,heyboxImport})button.Size=WindowLayout.Pixels(new Size(120,34),DeviceDpi);
+                account.SetBounds((int)(96*z),(int)(40*z),account.Width,(int)(34*z));heyboxAccount.SetBounds((int)(96*z),(int)(88*z),heyboxAccount.Width,(int)(34*z));
+                cookie.Left=heyboxImport.Left=accountPanel.ClientSize.Width-(int)(20*z)-cookie.Width;qr.Left=heyboxLogin.Left=cookie.Left-(int)(12*z)-qr.Width;
                 qr.Top=cookie.Top=(int)(40*z);heyboxLogin.Top=heyboxImport.Top=(int)(88*z);
                 account.Width=heyboxAccount.Width=Math.Max((int)(70*z),qr.Left-account.Left-(int)(12*z));
             };
-            accountPanel.Controls.Add(time); root.Controls.Add(accountPanel, 0, 1);
+            accountPanel.Resize+=(s,e)=>layoutAccounts();
+            root.Controls.Add(accountPanel, 0, 1);BuildDailyControls();
 
-            projects=Card("02   每日签到委托");projects.Margin=new Padding(0,8,0,5);
+            projects=Card("03   每日签到委托");
             projectGrid.Dock=DockStyle.Fill;projectGrid.BackColor=Color.Transparent;projects.Padding=new Padding(0,38,0,0);projectGrid.Padding=new Padding(10,0,10,10);projectGrid.ColumnCount=4;projectGrid.RowCount=2;
             for(int i=0;i<4;i++)projectGrid.ColumnStyles.Add(new ColumnStyle(SizeType.Percent,25));
             for(int i=0;i<2;i++)projectGrid.RowStyles.Add(new RowStyle(SizeType.Percent,50));
@@ -95,20 +95,17 @@ namespace MiyouDaily
             }
             var bbs=new GameTile("miyoushe","5","大别野",false,settings.Forums.Contains("5"));tiles.Add(bbs);projectGrid.Controls.Add(bbs,2,1);
             heyboxTile.SignSwitch.Checked=settings.HeyboxEnabled;projectGrid.Controls.Add(heyboxTile,3,1);
-            projects.Controls.Add(projectGrid);projectGrid.BringToFront();root.Controls.Add(projects,0,2);
+            projects.Controls.Add(projectGrid);projectGrid.BringToFront();root.Controls.Add(projects,0,3);
 
             buttons.BackColor=Color.Transparent; buttons.Dock = DockStyle.Fill; buttons.Padding = new Padding(0, 8, 0, 0); buttons.WrapContents = false;
             AddAction("立即签到", true, async () => await RunNow());
             AddAction("确认设定", false, async () => { ConfirmFromWidget(); await Task.FromResult(0); });
-            AddAction("开启每日定时", false, async () => { Save(); RequireLogin(); string path = Scheduler.Install(store, settings, Application.ExecutablePath); RefreshStatus(); Write("每日定时已开启；程序位置：" + path);Speak("主人，每日签到已安排妥当。我会在北京时间 "+settings.DailyTime+" 执行签到。"); await Task.FromResult(0); });
-            AddAction("关闭每日定时", false, async () => { if (Scheduler.Exists()) Scheduler.Remove(); RefreshStatus(); Write("每日定时已关闭。");Speak("主人，每日定时已关闭，需要时可以随时叫我签到。"); await Task.FromResult(0); });
             AddAction("查看数据", false, async () => { System.Diagnostics.Process.Start("explorer.exe", "\"" + store.Root + "\""); await Task.FromResult(0); });
             cancel.Text = "停止"; cancel.Size = new Size(72, 34); cancel.FlatStyle=FlatStyle.Flat;cancel.FlatAppearance.BorderColor=Theme.Edge;cancel.BackColor=Theme.Tile; cancel.Enabled = false; cancel.Click += (s, e) => { if (operation != null) operation.Cancel(); }; buttons.Controls.Add(cancel);
             BuildDisplayControls();root.Controls.Add(buttons, 0, 4);
-            schedule.BackColor=Color.Transparent; schedule.AutoSize = true; schedule.ForeColor = Accent; schedule.Padding = new Padding(0, 6, 0, 0); root.Controls.Add(schedule, 0, 5);
             log.Dock = DockStyle.Fill; log.ReadOnly = true; log.BorderStyle = BorderStyle.None; log.BackColor = Theme.Surface; log.ForeColor = Theme.Muted; log.Font = AppFonts.Chinese(9.5F);
-            ScrollbarTheme.Attach(log);
-            var logCard=new RoundedPanel{Dock=DockStyle.Fill,Padding=new Padding(18,40,18,14)};logCard.Controls.Add(log);logCard.Paint+=(s,e)=>{using(var f=AppFonts.Create(10,FontStyle.Bold))UiRendering.Text(e.Graphics,"03   执行记录  /  ACTIVITY LOG",f,new Rectangle((int)(18*logCard.DeviceDpi/96f),(int)(10*logCard.DeviceDpi/96f),(int)(500*logCard.DeviceDpi/96f),(int)(24*logCard.DeviceDpi/96f)),Theme.Muted,false);};log.DetectUrls = false; root.Controls.Add(logCard, 0, 6);
+            ScrollbarTheme.Attach(log,true);
+            var logCard=new RoundedPanel{Dock=DockStyle.Fill,Padding=new Padding(20,40,20,18),Margin=new Padding(0,6,0,6)};logCard.Controls.Add(log);logCard.Paint+=(s,e)=>{using(var f=AppFonts.Create(10,FontStyle.Bold))UiRendering.Text(e.Graphics,"04   执行记录  /  ACTIVITY LOG",f,new Rectangle((int)(18*logCard.DeviceDpi/96f),(int)(10*logCard.DeviceDpi/96f),(int)(500*logCard.DeviceDpi/96f),(int)(24*logCard.DeviceDpi/96f)),Theme.Muted,false);};log.DetectUrls = false; root.Controls.Add(logCard, 0, 5);
             time.Value = DateTime.Today + Clock.ParseTime(settings.DailyTime);
             RefreshStatus();
             if (File.Exists(store.LatestLog)){log.Text = File.ReadAllText(store.LatestLog);UiRendering.FormatLog(log,0,log.TextLength);}
@@ -125,7 +122,7 @@ namespace MiyouDaily
         }
         Panel Card(string title)
         {
-            var p = new RoundedPanel { Dock = DockStyle.Fill, Margin = new Padding(0, 3, 0, 3) };
+            var p = new RoundedPanel { Dock = DockStyle.Fill, Margin = new Padding(0, 6, 0, 6) };
             p.AccessibleName=title;
             p.Paint+=(s,e)=>{float z=p.DeviceDpi/96f;using(var f=AppFonts.Create(11,FontStyle.Bold))UiRendering.Text(e.Graphics,title,f,new Rectangle((int)(18*z),(int)(7*z),p.Width-(int)(36*z),(int)(28*z)),Accent,false);};return p;
         }
@@ -210,15 +207,16 @@ namespace MiyouDaily
             try{var config=HeyboxAccount.Load(settings);heyboxAccount.Text=config==null?"尚未登录 · 支持短信登录":"已登录 · 盒友 ID "+config.session.heybox_id;}
             catch(InvalidOperationException){heyboxAccount.Text="登录状态需要更新，请重新登录";}
             bool installed = Scheduler.Exists();dailyScheduleInstalled=installed;
-            schedule.Text = installed ? "● 每日定时已开启 · 北京时间 " + settings.DailyTime + " · 开机联网并保持 Windows 登录，锁屏可执行" : "○ 每日定时尚未开启 · 可先手动签到测试";
+            schedule.Text = installed ? "● 已开启 · 每天北京时间 " + settings.DailyTime : "○ 尚未开启 · 可先手动签到测试";
+            enableDaily.Primary=!installed;disableDaily.Primary=false;
         }
         void SetBusy(bool value)
         {
             buttons.Enabled = true;
             foreach (Control c in buttons.Controls) c.Enabled = !value;
             cancel.Enabled = value; projectGrid.Enabled = !value; time.Enabled = !value;autoStart.Enabled=!value;
-            // Login controls also remain locked while a network operation is active.
-            foreach (Control c in time.Parent.Controls) if (c is Button) c.Enabled = !value;
+            enableDaily.Enabled=disableDaily.Enabled=!value;
+            foreach(Control c in accountCard.Controls)if(c is Button)c.Enabled=!value;
         }
         async Task RunNow()
         {

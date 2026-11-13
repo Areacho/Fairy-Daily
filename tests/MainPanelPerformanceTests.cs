@@ -2,6 +2,7 @@ using System;
 using System.Diagnostics;
 using System.Drawing;
 using System.IO;
+using System.Linq;
 using System.Windows.Forms;
 using MiyouDaily;
 
@@ -61,7 +62,7 @@ partial class Tests
                     try
                     {
                         panel.DrawToBitmap(bitmap,new Rectangle(Point.Empty,panel.Size));
-                        var backdrop=(FairyBackdrop)panel.Controls[0];int backgrounds=backdrop.BackgroundRasterizations;
+                        var backdrop=panel.Controls.OfType<FairyBackdrop>().Single();int backgrounds=backdrop.BackgroundRasterizations;
                         var clock=Stopwatch.StartNew();
                         for(int i=0;i<8;i++)panel.DrawToBitmap(bitmap,new Rectangle(Point.Empty,panel.Size));
                         clock.Stop();Console.WriteLine("Main panel: 8 warm full-window paints at 200%, "+clock.ElapsedMilliseconds+" ms.");

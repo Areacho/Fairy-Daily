@@ -100,9 +100,7 @@ namespace MiyouDaily
             var g=e.Graphics;UiRendering.Quality(g);float z=DeviceDpi/96f;
             using(var f=AppFonts.Create(34,FontStyle.Bold))UiRendering.Text(g,"FAIRY",f,new Rectangle(0,0,(int)(180*z),(int)(62*z)),Theme.Text,false);
             using(var f=AppFonts.Create(8.5f))UiRendering.Text(g,"日常事务代理  /  DAILY COMMISSION",f,new Rectangle((int)(2*z),(int)(59*z),(int)(450*z),(int)(20*z)),Theme.Muted,false);
-            using(var p=new Pen(Color.FromArgb(90,Theme.Cyan)))g.DrawLine(p,Width-174*z,18*z,Width-12*z,18*z);
-            using(var f=AppFonts.Create(9))UiRendering.Text(g,"委托已接入 · 剩下的交给 Fairy",f,new Rectangle((int)(Width-285*z),(int)(40*z),(int)(285*z),(int)(24*z)),Theme.Muted,false);
-            using(var p=new Pen(Theme.Edge))g.DrawLine(p,200*z,26*z,Width-198*z,26*z);
+            using(var p=new Pen(Theme.Edge))g.DrawLine(p,200*z,26*z,Width-140*z,26*z);
         }
     }
     public sealed class WidgetPreferences
@@ -320,7 +318,7 @@ namespace MiyouDaily
             }
             if(!Visible)return;
             var cursor=PointToClient(Cursor.Position);float lookDistance=WindowLayout.Pixels(200,DeviceDpi);var look=new PointF(Math.Max(-1,Math.Min(1,(cursor.X-Width/2f)/lookDistance)),Math.Max(-1,Math.Min(1,(cursor.Y-Height/2f)/lookDistance)));
-            var bmp=eyeRenderer.Render(Size,prefs.Paused?frozen:clock.Elapsed.TotalSeconds,look,panel.IsWorking||activeProgress!=null,lifecycle.Openness,panel.DisplayOptions.EdgeQuality);
+            var bmp=eyeRenderer.Render(Size,prefs.Paused?frozen:clock.Elapsed.TotalSeconds,look,panel.IsWorking||activeProgress!=null,lifecycle.Openness,3);
             Present(bmp,(byte)Math.Round(255*lifecycle.Alpha));
         }
         void DisplayChanged(){if(!IsDisposed)Render();}
