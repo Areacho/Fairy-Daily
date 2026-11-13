@@ -93,7 +93,13 @@ namespace MiyouDaily
     }
     public sealed class FairyHeader : Control
     {
-        public FairyHeader(){DoubleBuffered=true;SetStyle(ControlStyles.SupportsTransparentBackColor,true);BackColor=Color.Transparent;Dock=DockStyle.Fill;}
+        readonly Timer hintTimer=new Timer{Interval=2500};string entryHint;
+        internal bool HasEntryHint{get{return !string.IsNullOrEmpty(entryHint);}}
+        internal Rectangle EntryHintBounds{get{int dpi=DeviceDpi,left=WindowLayout.Pixels(200,dpi);return new Rectangle(left,WindowLayout.Pixels(6,dpi),Math.Max(0,Math.Min(WindowLayout.Pixels(440,dpi),Width-left-WindowLayout.Pixels(140,dpi))),WindowLayout.Pixels(60,dpi));}}
+        public FairyHeader(){DoubleBuffered=true;SetStyle(ControlStyles.SupportsTransparentBackColor,true);BackColor=Color.Transparent;Dock=DockStyle.Fill;hintTimer.Tick+=(s,e)=>ClearEntryHint();VisibleChanged+=(s,e)=>{if(!Visible)ClearEntryHint();};}
+        internal void ShowEntryHint(string text){if(IsDisposed||Disposing)return;entryHint=text;hintTimer.Stop();hintTimer.Start();Invalidate(EntryHintBounds);}
+        internal void ClearEntryHint(){if(IsDisposed||Disposing)return;hintTimer.Stop();if(!HasEntryHint)return;entryHint=null;Invalidate(EntryHintBounds);}
+        protected override void Dispose(bool disposing){if(disposing){entryHint=null;hintTimer.Dispose();}base.Dispose(disposing);}
         protected override void OnPaintBackground(PaintEventArgs e){Theme.PaintBehind(this,e.Graphics);}
         protected override void OnPaint(PaintEventArgs e)
         {
@@ -101,6 +107,11 @@ namespace MiyouDaily
             using(var f=AppFonts.Create(34,FontStyle.Bold))UiRendering.Text(g,"FAIRY",f,new Rectangle(0,0,(int)(180*z),(int)(62*z)),Theme.Text,false);
             using(var f=AppFonts.Create(8.5f))UiRendering.Text(g,"日常事务代理  /  DAILY COMMISSION",f,new Rectangle((int)(2*z),(int)(59*z),(int)(450*z),(int)(20*z)),Theme.Muted,false);
             using(var p=new Pen(Theme.Edge))g.DrawLine(p,200*z,26*z,Width-140*z,26*z);
+            if(HasEntryHint)
+            {
+                var bounds=EntryHintBounds;
+                if(bounds.Width>0){Theme.FillRound(g,bounds,12*z,Theme.Surface,Theme.Edge);bounds.Inflate(-(int)(16*z),-(int)(8*z));UiRendering.Text(g,entryHint,Font,bounds,Theme.Text,false,true);}
+            }
         }
     }
     public sealed class WidgetPreferences
@@ -236,7 +247,11 @@ namespace MiyouDaily
         }
         internal void HideToTray(){userHidden=true;WindowInteraction.SetMoving(this,false);CancelAutoExit();Hide();dialogue.HideNow();timer.Interval=750;}
         internal void RestoreFromTray(){userHidden=false;CancelAutoExit();Show();timer.Interval=prefs.Paused?500:33;timer.Start();Render();}
-        public void OpenPanel(){if(IsClosingEye)return;userHidden=false;CancelAutoExit();if(panel.IsDisposed)return;panel.WindowState=FormWindowState.Normal;WindowLayout.CenterOnScreen(panel,panel.MinimumLogical,this);panel.Show();panel.Activate();panel.Tell("主人，总控制面板已接入。全部委托、账号与运行记录都在这里。");}
+        public void OpenPanel()
+        {
+            if(IsClosingEye)return;userHidden=false;CancelAutoExit();if(panel.IsDisposed)return;
+            clickDelay.Stop();dialogue.HideNow();panel.WindowState=FormWindowState.Normal;WindowLayout.CenterOnScreen(panel,panel.MinimumLogical,this);panel.Show();panel.Activate();panel.ShowEntryHint();
+        }
         static string SizeLabel(int size){return size==180?"小号":size==250?"标准":size==330?"大号":"自定义";}
         void CheckinFinished(FairyMessage notice){DeliverCompletion(notice);}
         internal bool DeliverCompletion(FairyMessage notice,bool? desktopAvailable=null)
@@ -299,9 +314,10 @@ namespace MiyouDaily
             userHidden=false;
             CancelAutoExit();
             if(panel.IsWorking){Say("主人，上一项委托还在处理，请稍候。");return;}
+            clickDelay.Stop();dialogue.HideNow();
             if(module==null||module.IsDisposed){module=new FairyModuleForm(panel,section);module.Show(this);}else{module.WindowState=FormWindowState.Normal;module.Navigate(section,false);module.Show();}
             WindowLayout.CenterOnScreen(module,section==FairySection.MiyouTasks?new Size(820,600):new Size(520,280),this);
-            module.Activate();string text=section==FairySection.Schedule?"主人，定时通道已展开。请设定您希望我开始工作的时间。":section==FairySection.Login?"主人，登录通道已就绪。请选择米游社或小黑盒完成授权。":"主人，签到通道已接入。选择平台，Fairy 随时待命。";Say(text);
+            module.Activate();
         }
         void Clamp(){var a=Screen.FromRectangle(Bounds).WorkingArea;Location=new Point(Math.Max(a.Left,Math.Min(Left,a.Right-Width)),Math.Max(a.Top,Math.Min(Top,a.Bottom-Height)));}
         void ResizeForDpi(){int pixels=(int)Math.Round(prefs.Size*DeviceDpi/96f);Size=new Size(pixels,pixels);Clamp();}

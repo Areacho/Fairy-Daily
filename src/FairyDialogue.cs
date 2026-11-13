@@ -29,6 +29,7 @@ namespace MiyouDaily
         public event Action Dismissed;
         internal event Action<Point> ContextMenuRequested;
         internal bool KeepNoticeOpen {get;set;}
+        internal const int NoticeIdleMilliseconds=4000,ShortcutIdleMilliseconds=6000,CloseMilliseconds=80;
         double fromHeight,fromOpacity;
         public FairyDialogue(MainForm panel,Action openPanel,Func<System.Threading.Tasks.Task> runCheckin=null)
         {
@@ -51,8 +52,7 @@ namespace MiyouDaily
             motion.Interval=16;motion.Tick+=(s,e)=>Animate();
             idle.Interval=250;idle.Tick+=(s,e)=>{
                 MaintainLayer();
-                if(!Visible||mode==Mode.Greeting||mode==Mode.Closing||KeepNoticeOpen||panel.IsWorking||ClientRectangle.Contains(PointToClient(Cursor.Position))){idleClock.Restart();return;}
-                if(idleClock.ElapsedMilliseconds>=12000)Dismiss();
+                if(!ProcessIdle(idleClock.ElapsedMilliseconds,ClientRectangle.Contains(PointToClient(Cursor.Position))))idleClock.Restart();
             };
             KeyPreview=true;KeyDown+=(s,e)=>idleClock.Restart();
             VisibleChanged+=(s,e)=>{if(Visible){RefreshActions();clock.Restart();idleClock.Restart();motion.Start();idle.Start();}else{motion.Stop();idle.Stop();}};
@@ -95,6 +95,11 @@ namespace MiyouDaily
             DialogueLayer.Raise(this);
         }
         internal void MaintainLayer(){if(mode!=Mode.Closing&&!WindowInteraction.IsMoving)DialogueLayer.Maintain(this);}
+        internal bool ProcessIdle(double milliseconds,bool pointerInside)
+        {
+            if(!Visible||mode==Mode.Greeting||mode==Mode.Closing||KeepNoticeOpen||panel.IsWorking||pointerInside)return false;
+            if(milliseconds>=(mode==Mode.Notice?NoticeIdleMilliseconds:ShortcutIdleMilliseconds))Dismiss();return true;
+        }
         RoundButton Add(string text,Func<System.Threading.Tasks.Task> action,int column,int row)
         {
             var button=new RoundButton{Text=text,Dock=DockStyle.Fill,Margin=new Padding(4),AccessibleName="Fairy快捷"+text};
@@ -153,7 +158,7 @@ namespace MiyouDaily
         {
             if(WindowInteraction.IsMoving&&mode!=Mode.Closing)return;
             double ms=clock.Elapsed.TotalMilliseconds;
-            if(mode==Mode.Closing){BackgroundOpacity=Math.Max(0,fromOpacity*(1-ms/130));if(ms>=130)Hide();return;}
+            if(mode==Mode.Closing){BackgroundOpacity=Math.Max(0,fromOpacity*(1-ms/CloseMilliseconds));if(ms>=CloseMilliseconds)Hide();return;}
             if(mode==Mode.Greeting)
             {
                 if(GreetingSession.StageAt(ms)==2){RefreshActions();message.Visible=false;actions.Visible=true;LayoutActions(false);Begin(Mode.Options,116);return;}

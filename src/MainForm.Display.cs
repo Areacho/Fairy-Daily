@@ -22,6 +22,8 @@ namespace MiyouDaily
             var entry=MakeButton("显示设置",false);entry.AccessibleName="打开显示设置";entry.Size=new Size(112,38);heading.Controls.Add(entry);
             heading.Layout+=(s,e)=>{int z=DeviceDpi;entry.SetBounds(heading.Width-WindowLayout.Pixels(112,z),WindowLayout.Pixels(8,z),WindowLayout.Pixels(112,z),WindowLayout.Pixels(38,z));};
             entry.Click+=(s,e)=>{DismissPageDialogue();using(var settings=CreateDisplaySettings())if(settings.ShowDialog(this)==DialogResult.OK)SaveDisplayOptions(settings.Selection);};
+            Deactivate+=(s,e)=>((FairyHeader)heading).ClearEntryHint();
+            heading.LocationChanged+=(s,e)=>{if(heading.Top<0)((FairyHeader)heading).ClearEntryHint();};
             root.Layout+=(s,e)=>UpdateMainScrollMetrics();
             ResizeEnd+=(s,e)=>ApplyDisplayLayout(true);
             EventHandler changed=(s,e)=>QueueDisplayUpdate();Microsoft.Win32.SystemEvents.DisplaySettingsChanged+=changed;
@@ -30,6 +32,13 @@ namespace MiyouDaily
         void QueueDisplayUpdate()
         {if(IsDisposed||!IsHandleCreated)return;try{BeginInvoke(new Action(()=>{if(!IsDisposed&&!WindowInteraction.IsMoving)ApplyDisplayLayout(true);}));}catch(InvalidOperationException){}}
         internal DisplaySettingsForm CreateDisplaySettings(){return new DisplaySettingsForm(display);}
+        internal void ShowEntryHint()
+        {
+            var heading=(FairyHeader)root.GetControlFromPosition(0,0);
+            var bounds=heading.EntryHintBounds;bounds.Offset(heading.Location);
+            if(!Visible||!Enabled||DialogueLayer.NotificationsPaused||heading.Top<0||!root.ClientRectangle.Contains(bounds)){heading.ClearEntryHint();return;}
+            heading.ShowEntryHint("总控制面板已打开。账号、签到与定时可在这里管理。");
+        }
         internal void SaveDisplayOptions(DisplayPreferences selection)
         {
             if(applyingDisplay||IsDisposed||Disposing)return;
