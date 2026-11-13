@@ -44,8 +44,9 @@ partial class Tests
             using(var widget=new FairyWidget(store,panel))
             {
                 widget.Say("offline menu regression");var bubble=WidgetDialogue(widget);Assert(bubble.Visible,"menu regression starts with a visible bubble");
-                var menu=widget.ContextMenuStrip;menu.Show(widget,new Point(0,0));
-                Assert(menu.Visible&&!bubble.Visible&&!PopupSurface.Attach(bubble).Background.Visible,"opening the context menu hides both bubble input and visual windows");
+                var menu=widget.ContextMenuStrip;var point=Screen.PrimaryScreen.WorkingArea.Location+new Size(40,40);
+                ScrollMessage(bubble.Handle,0x7B,bubble.Handle,new IntPtr((point.X&0xffff)|((point.Y&0xffff)<<16)));
+                Assert(menu.Visible&&menu.SourceControl==widget&&!bubble.Visible&&!PopupSurface.Attach(bubble).Background.Visible,"right-clicking the bubble opens a widget-owned menu and hides both bubble windows");
                 var notice=SpeechBus.Publish(store,"offline notification during menu",true);widget.PollNotifications(true);widget.Say("deferred narration");
                 Assert(menu.Visible&&!bubble.Visible&&SpeechBus.IsPending(store,notice,DateTimeOffset.UtcNow),"notifications cannot cover or dismiss an open context menu");
                 menu.Close();widget.PollNotifications(true);Assert(bubble.Visible&&!SpeechBus.IsPending(store,notice,DateTimeOffset.UtcNow),"closing the context menu releases the pending notification");

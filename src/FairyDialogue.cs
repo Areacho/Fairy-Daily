@@ -27,6 +27,7 @@ namespace MiyouDaily
         int targetHeight=126;
         bool compactGreeting,compactEye;
         public event Action Dismissed;
+        internal event Action<Point> ContextMenuRequested;
         internal bool KeepNoticeOpen {get;set;}
         double fromHeight,fromOpacity;
         public FairyDialogue(MainForm panel,Action openPanel,Func<System.Threading.Tasks.Task> runCheckin=null)
@@ -62,6 +63,16 @@ namespace MiyouDaily
         }
         protected override bool ShowWithoutActivation{get{return true;}}
         protected override CreateParams CreateParams{get{var p=base.CreateParams;p.ExStyle|=0x80;return p;}}
+        protected override void WndProc(ref Message message)
+        {
+            if(message.Msg==0x7B&&ContextMenuRequested!=null)
+            {
+                long packed=message.LParam.ToInt64();
+                var point=packed==-1?PointToScreen(new Point(ClientSize.Width/2,ClientSize.Height/2)):new Point((short)(packed&0xffff),(short)((packed>>16)&0xffff));
+                ContextMenuRequested(point);return;
+            }
+            base.WndProc(ref message);
+        }
         protected override void OnShown(EventArgs e){base.OnShown(e);LayoutMessage();LayoutActions(mode==Mode.Notice);RoundWindow();Reposition();DialogueLayer.Raise(this);}
         protected override void OnFormClosing(FormClosingEventArgs e)
         {

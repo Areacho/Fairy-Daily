@@ -159,7 +159,7 @@ namespace MiyouDaily
             menu.Items.Add(new FairyMenuItem("退出挂件","power",(s,e)=>Close()){Danger=true});
             menu.Opening+=(s,e)=>{e.Cancel=IsClosingEye;CancelAutoExit();run.Enabled=!panel.IsWorking;if(!e.Cancel)BeginMenuInteraction();};
             menu.Closed+=(s,e)=>EndMenuInteraction(e.CloseReason);ContextMenuStrip=menu;
-            dialogue=new FairyDialogue(panel,OpenPanel);dialogue.BindWidget(this);dialogue.Dismissed+=CancelAutoExit;panel.SpeechRequested+=Say;
+            dialogue=new FairyDialogue(panel,OpenPanel);dialogue.BindWidget(this);dialogue.Dismissed+=CancelAutoExit;dialogue.ContextMenuRequested+=OpenContextMenu;panel.SpeechRequested+=Say;
             panel.ModuleRequested+=OpenModule;
             panel.DialogueDismissRequested+=HideDialogue;
             panel.CheckinCompleted+=CheckinFinished;
@@ -220,6 +220,8 @@ namespace MiyouDaily
             if(!menuInteraction){menuReturnWindow=GetForegroundWindow();menuInteraction=true;clickDelay.Stop();dialogue.HideNow();}
             SetForegroundWindow(Handle);
         }
+        void OpenContextMenu(Point screen)
+        {if(!Visible||IsClosingEye)return;BeginMenuInteraction();menu.Show(this,PointToClient(screen));}
         void EndMenuInteraction(ToolStripDropDownCloseReason reason)
         {
             IntPtr previous=menuReturnWindow;menuReturnWindow=IntPtr.Zero;menuInteraction=false;
