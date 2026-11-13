@@ -9,8 +9,8 @@ partial class Tests
 {
     static void Version111Checks()
     {
-        var store=TestStore();Store.AtomicWrite(Path.Combine(store.Root,"display.json"),"{\"Layout\":\"compact\",\"EdgeQuality\":2}");
-        var legacy=DisplayPreferences.Load(store);Assert(legacy.Layout=="compact"&&legacy.Resolution=="auto","old display preferences migrate without a selectable eye-quality option");
+        var store=TestStore();Store.AtomicWrite(Path.Combine(store.Root,"display.json"),"{\"Layout\":\"compact\",\"EdgeQuality\":2,\"Resolution\":\"4k\"}");
+        var legacy=DisplayPreferences.Load(store);Assert(legacy.Layout=="compact"&&!Json.Write(legacy).Contains("Resolution"),"old display preferences migrate without window-resolution or eye-quality options");
         using(var panel=new MainForm(store,new Settings()))
         {
             panel.Opacity=0;panel.Show();panel.Location=new Point(-12000,-12000);
@@ -24,22 +24,22 @@ partial class Tests
                 var actions=daily.Controls.Cast<Control>().Where(c=>c is RoundButton||c is ToggleButton||c is DigitalTimePicker).ToArray();
                 Assert(actions.All(a=>actions.All(b=>a==b||!a.Bounds.IntersectsWith(b.Bounds))),"daily time and actions never overlap at "+dpi+" DPI");
             }
-            foreach(string mode in new[]{"auto","1080p","2k","4k"})
+            foreach(string mode in new[]{"auto","compact","wide"})
             {
-                panel.SaveDisplayOptions(new DisplayPreferences{Resolution=mode});
-                Assert(Screen.FromControl(panel).WorkingArea.Contains(panel.Bounds)&&DisplayPreferences.Load(store).Resolution==mode,"window resolution "+mode+" persists and remains within the real work area");
+                panel.SaveDisplayOptions(new DisplayPreferences{Layout=mode});
+                Assert(Screen.FromControl(panel).WorkingArea.Contains(panel.Bounds)&&DisplayPreferences.Load(store).Layout==mode,"layout "+mode+" automatically fits the real work area");
             }
             using(var settings=panel.CreateDisplaySettings())
             {
                 settings.Opacity=0;settings.Show();settings.Location=new Point(-12000,-12000);
-                Assert(!FindControls(settings).OfType<ComboBox>().Any()&&FindControls(settings).OfType<RoundChoice>().Count()==2,"display settings use rounded selectors without native light dropdown surfaces");
-                settings.LayoutChoice.SelectedIndex=1;settings.ResolutionChoice.SelectedIndex=2;
-                Assert(settings.Selection.Layout=="compact"&&settings.Selection.Resolution=="2k","settings resolve layout and physical window-resolution selections");
-                Assert(DisplayPreferences.Load(store).Resolution=="4k","editing or cancelling settings leaves saved preferences unchanged");
+                Assert(!FindControls(settings).OfType<ComboBox>().Any()&&FindControls(settings).OfType<RoundChoice>().Count()==1,"display settings retain one rounded layout selector and no window-size setting");
+                settings.LayoutChoice.SelectedIndex=1;
+                Assert(settings.Selection.Layout=="compact","settings resolve the layout selection");
+                Assert(DisplayPreferences.Load(store).Layout=="wide","editing or cancelling settings leaves saved preferences unchanged");
                 foreach(int dpi in new[]{96,120,144,168,192,240,288})
                 {
-                    SetTestDpi(settings,dpi);settings.MinimumSize=Size.Empty;using(var limits=new VirtualRenderBounds(settings))LayerPosition(settings.Handle,IntPtr.Zero,-12000,-12000,WindowLayout.Pixels(610,dpi),WindowLayout.Pixels(490,dpi),0x214);settings.PerformLayout();
-                    foreach(var choice in new[]{settings.LayoutChoice,settings.ResolutionChoice})
+                    SetTestDpi(settings,dpi);settings.MinimumSize=Size.Empty;using(var limits=new VirtualRenderBounds(settings))LayerPosition(settings.Handle,IntPtr.Zero,-12000,-12000,WindowLayout.Pixels(610,dpi),WindowLayout.Pixels(360,dpi),0x214);settings.PerformLayout();
+                    foreach(var choice in new[]{settings.LayoutChoice})
                     {
                         Assert(choice.Parent.ClientRectangle.Contains(choice.Bounds)&&choice.Left>=WindowLayout.Pixels(120,dpi)&&choice.Right<=choice.Parent.Width-WindowLayout.Pixels(16,dpi),"rounded setting selector keeps its border inset at "+dpi+" DPI");
                         using(var frame=new Bitmap(choice.Width,choice.Height)){frame.SetResolution(dpi,dpi);choice.DrawToBitmap(frame,choice.ClientRectangle);Assert(frame.GetPixel(0,0).ToArgb()!=Color.White.ToArgb(),"selector corners remain in the navy palette at "+dpi+" DPI");}

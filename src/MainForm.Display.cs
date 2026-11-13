@@ -1,7 +1,6 @@
 using System;
 using System.Drawing;
 using System.Linq;
-using System.Runtime.InteropServices;
 using System.Windows.Forms;
 
 namespace MiyouDaily
@@ -11,19 +10,18 @@ namespace MiyouDaily
         readonly FairyBackdrop root;
         readonly Panel projects;
         readonly DisplayPreferences display;
-        bool applyingDisplay,updatingMetrics,preparingFrame;
-        int appliedDpi;string appliedLayout,appliedResolution;Rectangle appliedArea;
-        internal int PreparedFrames{get;private set;}
+        bool applyingDisplay,updatingMetrics;
+        int appliedDpi;string appliedLayout;Rectangle appliedArea;
         internal DisplayPreferences DisplayOptions{get{return display;}}
         internal event Action DisplayOptionsChanged;
         bool CompactDisplay{get{return display.Compact((IsHandleCreated?Screen.FromControl(this):Screen.PrimaryScreen).WorkingArea,IsHandleCreated?Math.Max(96,DeviceDpi):96);}}
-        internal Size MinimumLogical{get{var size=CompactDisplay?new Size(880,650):new Size(980,810);var resolution=display.ResolutionSize;if(!resolution.IsEmpty){int dpi=IsHandleCreated?DeviceDpi:96;size=new Size(Math.Min(size.Width,(int)(resolution.Width*96.0/dpi)),Math.Min(size.Height,(int)(resolution.Height*96.0/dpi)));}return size;}}
+        internal Size MinimumLogical{get{return CompactDisplay?new Size(880,650):new Size(980,810);}}
         void BuildDisplayControls()
         {
             var heading=(Control)root.GetControlFromPosition(0,0);
             var entry=MakeButton("显示设置",false);entry.AccessibleName="打开显示设置";entry.Size=new Size(112,38);heading.Controls.Add(entry);
             heading.Layout+=(s,e)=>{int z=DeviceDpi;entry.SetBounds(heading.Width-WindowLayout.Pixels(112,z),WindowLayout.Pixels(8,z),WindowLayout.Pixels(112,z),WindowLayout.Pixels(38,z));};
-            entry.Click+=(s,e)=>{using(var settings=CreateDisplaySettings())if(settings.ShowDialog(this)==DialogResult.OK)SaveDisplayOptions(settings.Selection);};
+            entry.Click+=(s,e)=>{DismissPageDialogue();using(var settings=CreateDisplaySettings())if(settings.ShowDialog(this)==DialogResult.OK)SaveDisplayOptions(settings.Selection);};
             root.Layout+=(s,e)=>UpdateMainScrollMetrics();
             ResizeEnd+=(s,e)=>ApplyDisplayLayout(true);
             EventHandler changed=(s,e)=>QueueDisplayUpdate();Microsoft.Win32.SystemEvents.DisplaySettingsChanged+=changed;
@@ -36,13 +34,13 @@ namespace MiyouDaily
         {
             if(applyingDisplay||IsDisposed||Disposing)return;
             selection.Normalize();
-            try{selection.Save(store);root.AutoScrollPosition=Point.Empty;display.Layout=selection.Layout;display.Resolution=selection.Resolution;ApplyDisplayLayout(true);root.AutoScrollPosition=Point.Empty;if(DisplayOptionsChanged!=null)DisplayOptionsChanged();Write("显示设置已保存。");}catch(Exception ex){ShowError(ex);}
+            try{selection.Save(store);root.AutoScrollPosition=Point.Empty;display.Layout=selection.Layout;ApplyDisplayLayout(true);root.AutoScrollPosition=Point.Empty;if(DisplayOptionsChanged!=null)DisplayOptionsChanged();Write("显示设置已保存。");}catch(Exception ex){ShowError(ex);}
         }
         internal void ApplyDisplayLayout(bool resize)
         {
             if(applyingDisplay||IsDisposed)return;
             var workArea=Screen.FromControl(this).WorkingArea;
-            if(resize&&appliedDpi==DeviceDpi&&appliedLayout==display.Layout&&appliedResolution==display.Resolution&&appliedArea==workArea){UpdateMainScrollMetrics();return;}
+            if(resize&&appliedDpi==DeviceDpi&&appliedLayout==display.Layout&&appliedArea==workArea){UpdateMainScrollMetrics();return;}
             applyingDisplay=true;var previous=Bounds;
             root.AutoScrollMinSize=Size.Empty;root.AutoScroll=false;
             SuspendLayout();root.SuspendLayout();projectGrid.SuspendLayout();
@@ -63,7 +61,7 @@ namespace MiyouDaily
                 if(resize){WindowLayout.Fit(this,MinimumLogical);ClientSize=display.PreferredClientSize(CompactDisplay,DeviceDpi);WindowLayout.PreserveCenter(this,previous,MinimumLogical);}
             }
             finally{projectGrid.ResumeLayout(true);root.ResumeLayout(true);ResumeLayout(true);applyingDisplay=false;}
-            appliedDpi=DeviceDpi;appliedLayout=display.Layout;appliedResolution=display.Resolution;appliedArea=workArea;
+            appliedDpi=DeviceDpi;appliedLayout=display.Layout;appliedArea=workArea;
             layoutAccounts();
             UpdateMainScrollMetrics();root.AutoScroll=true;root.PerformLayout();
         }
@@ -82,30 +80,6 @@ namespace MiyouDaily
             finally{updatingMetrics=false;}
         }
         protected override void OnDpiChangedAfterParent(EventArgs e){base.OnDpiChangedAfterParent(e);UpdateMainScrollMetrics();}
-        // Prepare the entire child HWND tree before revealing the window. The
-        // short-lived composition style is removed before ordinary interaction.
-        protected override void SetVisibleCore(bool value)
-        {
-            if(!value||Visible||preparingFrame||Opacity==0){base.SetVisibleCore(value);return;}
-            preparingFrame=true;double opacity=Opacity;Opacity=0;IntPtr window=Handle;bool hadComposition=(DisplayWindowStyle(window,-20)&0x02000000)!=0;
-            try
-            {
-                SetDisplayWindowStyle(window,-20,DisplayWindowStyle(window,-20)|0x02000000);
-                base.SetVisibleCore(true);ApplyDisplayLayout(true);PerformLayout();
-                using(var frame=new Bitmap(Math.Max(1,Width),Math.Max(1,Height)))
-                {
-                    frame.SetResolution(DeviceDpi,DeviceDpi);int previousDpi=PopupSurface.RenderingDpi;PopupSurface.RenderingDpi=DeviceDpi;
-                    try{DrawToBitmap(frame,new Rectangle(Point.Empty,Size));}finally{PopupSurface.RenderingDpi=previousDpi;}
-                }
-                PreparedFrames++;Refresh();Opacity=opacity;Refresh();
-            }
-            finally
-            {
-                if(!IsDisposed){Opacity=opacity;if(!hadComposition)SetDisplayWindowStyle(Handle,-20,DisplayWindowStyle(Handle,-20)&~0x02000000);}
-                preparingFrame=false;
-            }
-        }
-        [DllImport("user32.dll",EntryPoint="GetWindowLongW")]static extern int DisplayWindowStyle(IntPtr window,int index);
-        [DllImport("user32.dll",EntryPoint="SetWindowLongW")]static extern int SetDisplayWindowStyle(IntPtr window,int index,int value);
+        protected override void PrepareVisibleFrame(){ApplyDisplayLayout(true);PerformLayout();}
     }
 }

@@ -9,7 +9,7 @@ using System.Windows.Forms;
 
 namespace MiyouDaily
 {
-    public sealed partial class MainForm : Form
+    public sealed partial class MainForm : PreparedForm
     {
         readonly Store store;
         Settings settings;

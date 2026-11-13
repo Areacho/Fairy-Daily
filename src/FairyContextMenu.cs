@@ -60,9 +60,12 @@ namespace MiyouDaily
         }
         protected override void OnClosed(ToolStripDropDownClosedEventArgs e)
         {
+            DialogueLayer.MenuClosed(this);
             foreach(ToolStripDropDownItem item in Items.OfType<ToolStripDropDownItem>())if(item.HasDropDownItems&&item.DropDown.Visible)item.DropDown.Close(e.CloseReason);
             base.OnClosed(e);
         }
+        protected override void OnOpened(EventArgs e){base.OnOpened(e);DialogueLayer.MenuOpened(this);}
+        protected override void Dispose(bool disposing){if(disposing)DialogueLayer.MenuClosed(this);base.Dispose(disposing);}
         protected override void OnSizeChanged(EventArgs e){base.OnSizeChanged(e);RoundWindow();}
         void RoundWindow()
         {

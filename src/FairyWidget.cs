@@ -230,7 +230,7 @@ namespace MiyouDaily
         }
         public void Say(string message)
         {
-            if(IsDisposed||IsClosingEye||userHidden||menuInteraction)return;if(InvokeRequired){BeginInvoke(new Action<string>(Say),message);return;}
+            if(IsDisposed||IsClosingEye||userHidden||menuInteraction)return;if(InvokeRequired){BeginInvoke(new Action<string>(Say),message);return;}if(DialogueLayer.NotificationsPaused)return;
             CancelAutoExit();
             if(!Visible){Show();timer.Interval=prefs.Paused?500:33;timer.Start();}dialogue.Say(message);dialogue.ShowFor(this);
         }
@@ -241,7 +241,7 @@ namespace MiyouDaily
         void CheckinFinished(FairyMessage notice){DeliverCompletion(notice);}
         internal bool DeliverCompletion(FairyMessage notice,bool? desktopAvailable=null)
         {
-            if(IsDisposed||IsClosingEye||userHidden||menuInteraction||showingCompletion||!SpeechBus.IsPending(store,notice,DateTimeOffset.UtcNow)||!(desktopAvailable??CheckinNotifications.DesktopAvailable()))return false;
+            if(IsDisposed||IsClosingEye||userHidden||menuInteraction||DialogueLayer.NotificationsPaused||showingCompletion||!SpeechBus.IsPending(store,notice,DateTimeOffset.UtcNow)||!(desktopAvailable??CheckinNotifications.DesktopAvailable()))return false;
             if(!string.IsNullOrEmpty(notice.RunId)&&notice.RunId==activeProgress&&clock.Elapsed.TotalSeconds-progressShownAt<MinimumProgressSeconds)return false;
             showingCompletion=true;
             try
@@ -257,7 +257,7 @@ namespace MiyouDaily
         }
         internal void PollNotifications(bool? desktopAvailable=null)
         {
-            if(IsClosingEye||userHidden||menuInteraction)return;
+            if(IsClosingEye||userHidden||menuInteraction||DialogueLayer.NotificationsPaused)return;
             var speech=SpeechBus.Read(store);if(speech==null)return;
             if(speech.IsCompletion)
             {
@@ -271,7 +271,7 @@ namespace MiyouDaily
         }
         internal bool DeliverProgress(FairyMessage notice,bool? desktopAvailable=null)
         {
-            if(IsDisposed||IsClosingEye||showingCompletion||!SpeechBus.IsProgressPending(store,notice,DateTimeOffset.UtcNow)||!(desktopAvailable??CheckinNotifications.DesktopAvailable()))return false;
+            if(IsDisposed||IsClosingEye||userHidden||menuInteraction||DialogueLayer.NotificationsPaused||showingCompletion||!SpeechBus.IsProgressPending(store,notice,DateTimeOffset.UtcNow)||!(desktopAvailable??CheckinNotifications.DesktopAvailable()))return false;
             showingCompletion=true;
             try
             {
@@ -286,7 +286,7 @@ namespace MiyouDaily
         {
             if(!AutoExitPending||IsDisposed)return false;
             if(!panel.ShouldExitAfterCompletion(exitNotice)){CancelAutoExit();return false;}
-            if(!desktopAvailable||panel.IsWorking){exitDeadline=now+AutoExitDelaySeconds;return false;}
+            if(!desktopAvailable||panel.IsWorking||DialogueLayer.NotificationsPaused){exitDeadline=now+AutoExitDelaySeconds;return false;}
             if(now<exitDeadline)return false;
             // A separate scheduled worker may still own the account run lock.
             IDisposable lease;try{lease=store.AcquireRunLock();}catch(InvalidOperationException){exitDeadline=now+AutoExitDelaySeconds;return false;}

@@ -34,7 +34,7 @@ partial class Tests
             panel.SaveDisplayOptions(new DisplayPreferences{Layout="compact"});
             var grid=FindControls(panel).OfType<TableLayoutPanel>().Single(t=>t.Controls.OfType<GameTile>().Any());
             Assert(grid.ColumnCount==2&&grid.RowCount==4,"compact main panel reflows the eight cards into two columns");
-            var loaded=DisplayPreferences.Load(store);Assert(loaded.Layout=="compact"&&loaded.Resolution=="auto","display preferences persist independently of account settings");
+            var loaded=DisplayPreferences.Load(store);Assert(loaded.Layout=="compact","display preferences persist independently of account settings");
             panel.SaveDisplayOptions(new DisplayPreferences{Layout="wide"});Assert(grid.ColumnCount==4&&grid.RowCount==2,"wide main-panel layout restores four columns");
             var root=panel.Controls.OfType<FairyBackdrop>().Single();
             if(root.HorizontalScroll.Visible)root.AutoScrollPosition=new Point(root.HorizontalScroll.Maximum,root.VerticalScroll.Value);
