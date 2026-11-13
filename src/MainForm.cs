@@ -47,12 +47,12 @@ namespace MiyouDaily
         {
             SuspendLayout();
             DoubleBuffered=true;SetStyle(ControlStyles.ResizeRedraw,true);
-            this.store = store; this.settings = settings;
+            this.store = store; this.settings = settings;display=DisplayPreferences.Load(store);
             Text = "FAIRY / 日常事务代理"; Font = AppFonts.Create(10F); ForeColor = Ink; Icon=AppAssets.Icon;
             BackColor = Theme.Background;Opacity=1; Size = new Size(1080, 900); MinimumSize = new Size(980, 810);
             StartPosition = FormStartPosition.CenterScreen; AutoScaleDimensions=new SizeF(96,96);AutoScaleMode = AutoScaleMode.Dpi;
-            var root = new FairyBackdrop { Dock = DockStyle.Fill, ColumnCount = 1, RowCount = 6, Padding = new Padding(26, 18, 26, 14),AutoScroll=true };
-            foreach (var row in new[] { new RowStyle(SizeType.Absolute, 82), new RowStyle(SizeType.Absolute, 142), new RowStyle(SizeType.Absolute, 340), new RowStyle(SizeType.Absolute, 56), new RowStyle(SizeType.Absolute, 32), new RowStyle(SizeType.Percent, 100) }) root.RowStyles.Add(row);
+            root = new FairyBackdrop { Dock = DockStyle.Fill, ColumnCount = 1, RowCount = 7, Padding = new Padding(26, 18, 26, 14),AutoScroll=true };
+            foreach(int height in new[]{82,142,340,52,56,32,180})root.RowStyles.Add(new RowStyle(SizeType.Absolute,height));
             Controls.Add(root);
             ScrollbarTheme.Attach(root);
             var heading = new FairyHeader();
@@ -84,7 +84,7 @@ namespace MiyouDaily
             };
             accountPanel.Controls.Add(time); root.Controls.Add(accountPanel, 0, 1);
 
-            var projects=Card("02   每日签到委托");projects.Margin=new Padding(0,8,0,5);
+            projects=Card("02   每日签到委托");projects.Margin=new Padding(0,8,0,5);
             projectGrid.Dock=DockStyle.Fill;projectGrid.BackColor=Color.Transparent;projects.Padding=new Padding(0,38,0,0);projectGrid.Padding=new Padding(10,0,10,10);projectGrid.ColumnCount=4;projectGrid.RowCount=2;
             for(int i=0;i<4;i++)projectGrid.ColumnStyles.Add(new ColumnStyle(SizeType.Percent,25));
             for(int i=0;i<2;i++)projectGrid.RowStyles.Add(new RowStyle(SizeType.Percent,50));
@@ -104,17 +104,16 @@ namespace MiyouDaily
             AddAction("关闭每日定时", false, async () => { if (Scheduler.Exists()) Scheduler.Remove(); RefreshStatus(); Write("每日定时已关闭。");Speak("主人，每日定时已关闭，需要时可以随时叫我签到。"); await Task.FromResult(0); });
             AddAction("查看数据", false, async () => { System.Diagnostics.Process.Start("explorer.exe", "\"" + store.Root + "\""); await Task.FromResult(0); });
             cancel.Text = "停止"; cancel.Size = new Size(72, 34); cancel.FlatStyle=FlatStyle.Flat;cancel.FlatAppearance.BorderColor=Theme.Edge;cancel.BackColor=Theme.Tile; cancel.Enabled = false; cancel.Click += (s, e) => { if (operation != null) operation.Cancel(); }; buttons.Controls.Add(cancel);
-            root.Controls.Add(buttons, 0, 3);
-            schedule.BackColor=Color.Transparent; schedule.AutoSize = true; schedule.ForeColor = Accent; schedule.Padding = new Padding(0, 6, 0, 0); root.Controls.Add(schedule, 0, 4);
+            BuildDisplayControls();root.Controls.Add(buttons, 0, 4);
+            schedule.BackColor=Color.Transparent; schedule.AutoSize = true; schedule.ForeColor = Accent; schedule.Padding = new Padding(0, 6, 0, 0); root.Controls.Add(schedule, 0, 5);
             log.Dock = DockStyle.Fill; log.ReadOnly = true; log.BorderStyle = BorderStyle.None; log.BackColor = Theme.Surface; log.ForeColor = Theme.Muted; log.Font = AppFonts.Chinese(9.5F);
             ScrollbarTheme.Attach(log);
-            var logCard=new RoundedPanel{Dock=DockStyle.Fill,Padding=new Padding(18,40,18,14)};logCard.Controls.Add(log);logCard.Paint+=(s,e)=>{using(var f=AppFonts.Create(10,FontStyle.Bold))UiRendering.Text(e.Graphics,"03   执行记录  /  ACTIVITY LOG",f,new Rectangle((int)(18*logCard.DeviceDpi/96f),(int)(10*logCard.DeviceDpi/96f),(int)(500*logCard.DeviceDpi/96f),(int)(24*logCard.DeviceDpi/96f)),Theme.Muted,false);};log.DetectUrls = false; root.Controls.Add(logCard, 0, 5);
+            var logCard=new RoundedPanel{Dock=DockStyle.Fill,Padding=new Padding(18,40,18,14)};logCard.Controls.Add(log);logCard.Paint+=(s,e)=>{using(var f=AppFonts.Create(10,FontStyle.Bold))UiRendering.Text(e.Graphics,"03   执行记录  /  ACTIVITY LOG",f,new Rectangle((int)(18*logCard.DeviceDpi/96f),(int)(10*logCard.DeviceDpi/96f),(int)(500*logCard.DeviceDpi/96f),(int)(24*logCard.DeviceDpi/96f)),Theme.Muted,false);};log.DetectUrls = false; root.Controls.Add(logCard, 0, 6);
             time.Value = DateTime.Today + Clock.ParseTime(settings.DailyTime);
             RefreshStatus();
             if (File.Exists(store.LatestLog)){log.Text = File.ReadAllText(store.LatestLog);UiRendering.FormatLog(log,0,log.TextLength);}
             if (log.TextLength == 0) Write("欢迎使用。米游社与小黑盒可在上方分别登录，在每日签到委托中选择项目，确认设定后统一执行。");
-            Action scrollMetrics=()=>root.AutoScrollMinSize=WindowLayout.Pixels(new Size(940,790),DeviceDpi);
-            Shown+=(s,e)=>scrollMetrics();DpiChanged+=(s,e)=>BeginInvoke(scrollMetrics);WindowLayout.Watch(this,()=>new Size(980,810),true,()=>PlacementOwner);
+            Shown+=(s,e)=>ApplyDisplayLayout(true);DpiChanged+=(s,e)=>BeginInvoke(new Action(()=>ApplyDisplayLayout(true)));WindowLayout.Watch(this,()=>MinimumLogical,true,()=>PlacementOwner);
             VisibleChanged+=(s,e)=>{if(Visible){updatingStartup=true;try{autoStart.Checked=StartupManager.IsEnabled();}finally{updatingStartup=false;}}};
             FormClosing += (s, e) => {
                 DismissPageDialogue();

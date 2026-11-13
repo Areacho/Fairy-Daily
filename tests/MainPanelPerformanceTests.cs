@@ -61,9 +61,11 @@ partial class Tests
                     try
                     {
                         panel.DrawToBitmap(bitmap,new Rectangle(Point.Empty,panel.Size));
+                        var backdrop=(FairyBackdrop)panel.Controls[0];int backgrounds=backdrop.BackgroundRasterizations;
                         var clock=Stopwatch.StartNew();
                         for(int i=0;i<8;i++)panel.DrawToBitmap(bitmap,new Rectangle(Point.Empty,panel.Size));
                         clock.Stop();Console.WriteLine("Main panel: 8 warm full-window paints at 200%, "+clock.ElapsedMilliseconds+" ms.");
+                        Assert(backdrop.BackgroundRasterizations==backgrounds,"visible scrollbars do not rebuild the main background on every child paint");
                         bitmap.Save(Path.Combine(DisplayReviewDirectory(),"main-panel-performance.png"));
                     }
                     finally{PopupSurface.RenderingDpi=previous;}

@@ -40,11 +40,12 @@ namespace MiyouDaily
         }
         public static GraphicsPath Round(RectangleF r,float radius)
         {
-            radius=Math.Min(radius,Math.Min(r.Width,r.Height)/2);float d=radius*2;var p=new GraphicsPath();
+            var p=new GraphicsPath();if(r.Width<=0||r.Height<=0)return p;
+            radius=Math.Max(0,Math.Min(radius,Math.Min(r.Width,r.Height)/2));if(radius==0){p.AddRectangle(r);return p;}float d=radius*2;
             p.AddArc(r.X,r.Y,d,d,180,90);p.AddArc(r.Right-d,r.Y,d,d,270,90);p.AddArc(r.Right-d,r.Bottom-d,d,d,0,90);p.AddArc(r.X,r.Bottom-d,d,d,90,90);p.CloseFigure();return p;
         }
         public static void FillRound(Graphics g,RectangleF r,float radius,Color fill,Color border)
-        {using(var path=Round(r,radius)){using(var b=new SolidBrush(fill))g.FillPath(b,path);if(border.A>0)using(var pen=new Pen(border))g.DrawPath(pen,path);}}
+        {if(r.Width<=0||r.Height<=0)return;using(var path=Round(r,radius)){using(var b=new SolidBrush(fill))g.FillPath(b,path);if(border.A>0)using(var pen=new Pen(border))g.DrawPath(pen,path);}}
         internal static void PaintBehind(Control child,Graphics g)
         {
             // Replay only our background artwork. Invoking a parent's WinForms
@@ -92,6 +93,7 @@ namespace MiyouDaily
     public sealed class FairyBackdrop : TableLayoutPanel
     {
         Bitmap texture;int textureDpi;
+        internal int BackgroundRasterizations{get;private set;}
         public FairyBackdrop(){DoubleBuffered=true;BackColor=Theme.Background;SetStyle(ControlStyles.ResizeRedraw|ControlStyles.Opaque,true);}
         protected override void OnPaintBackground(PaintEventArgs e)
         { }
@@ -102,17 +104,23 @@ namespace MiyouDaily
             if(PopupSurface.Contains(FindForm())){g.Clear(PopupSurface.ClearColor);return;}
             // Cache the HDD light field and scans; transparent children replay
             // the same artwork without repainting other controls.
-            if(Width<1||Height<1)return;
+            if(ClientSize.Width<1||ClientSize.Height<1)return;
             if(texture==null||textureDpi!=DeviceDpi||texture.Size!=ClientSize)
             {
                 if(texture!=null)texture.Dispose();textureDpi=DeviceDpi;
-                texture=new Bitmap(Width,Height,System.Drawing.Imaging.PixelFormat.Format32bppPArgb);
+                // Scrollbars occupy non-client pixels: cache the same client
+                // dimensions used by the invalidation comparison above.
+                texture=new Bitmap(ClientSize.Width,ClientSize.Height,System.Drawing.Imaging.PixelFormat.Format32bppPArgb);BackgroundRasterizations++;
                 using(var tile=Graphics.FromImage(texture))
                 {
                     Theme.HddBackground(tile,ClientRectangle);
                 }
             }
-            g.DrawImageUnscaled(texture,0,0);
+            // Transparent children need only their visible slice. Drawing the
+            // whole monitor-sized bitmap on every tiny child DC is expensive,
+            // and DrawImageUnscaled can also involve memory-DC DPI conversion.
+            var area=Rectangle.Intersect(ClientRectangle,Rectangle.Ceiling(g.VisibleClipBounds));
+            if(area.Width>0&&area.Height>0)g.DrawImage(texture,area,area.X,area.Y,area.Width,area.Height,GraphicsUnit.Pixel);
         }
         protected override void Dispose(bool disposing){if(disposing&&texture!=null){texture.Dispose();texture=null;}base.Dispose(disposing);}
         static void Glow(Graphics g,RectangleF rect,Color color)
@@ -212,6 +220,20 @@ namespace MiyouDaily
                 ShapeRasterizations++;shapes[state]=result;return result;
             }
             catch{result.Dispose();throw;}
+        }
+    }
+    public sealed class ThemeComboBox : ComboBox
+    {
+        public ThemeComboBox(){DrawMode=DrawMode.OwnerDrawFixed;DropDownStyle=ComboBoxStyle.DropDownList;FlatStyle=FlatStyle.Flat;BackColor=Theme.Tile;ForeColor=Theme.Text;UpdateItemHeight();}
+        void UpdateItemHeight(){ItemHeight=Math.Max(Font.Height+4,WindowLayout.Pixels(25,DeviceDpi));}
+        protected override void OnFontChanged(EventArgs e){base.OnFontChanged(e);UpdateItemHeight();}
+        protected override void OnDpiChangedAfterParent(EventArgs e){base.OnDpiChangedAfterParent(e);UpdateItemHeight();}
+        protected override void OnDrawItem(DrawItemEventArgs e)
+        {
+            bool selected=(e.State&DrawItemState.Selected)!=0;
+            using(var brush=new SolidBrush(selected?Theme.Edge:Theme.Tile))e.Graphics.FillRectangle(brush,e.Bounds);
+            string text=e.Index>=0&&e.Index<Items.Count?GetItemText(Items[e.Index]):Text;
+            var bounds=e.Bounds;bounds.X+=5;bounds.Width=Math.Max(0,bounds.Width-10);UiRendering.Text(e.Graphics,text,Font,bounds,Theme.Text,false);
         }
     }
     public sealed class ToggleButton : CheckBox
