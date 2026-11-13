@@ -55,7 +55,7 @@ partial class Tests
                 widget.OpenModule(FairySection.Checkin);
                 var active=(FairyModuleForm)typeof(FairyWidget).GetField("module",BindingFlags.NonPublic|BindingFlags.Instance).GetValue(widget);
                 var notice=(FairyDialogue)typeof(FairyWidget).GetField("dialogue",BindingFlags.NonPublic|BindingFlags.Instance).GetValue(widget);
-                Assert(notice.Visible,"opening a page displays its Fairy narration");active.Close();Assert(!notice.Visible,"closing a module immediately hides its narration bubble");
+                Assert(active.Visible&&!notice.Visible&&FindControls(active).OfType<SmoothLabel>().Any(l=>l.Text.Contains("选择一条签到通道")),"opening configuration keeps its Fairy guide inside the page without an obscured desktop bubble");active.Close();Assert(!notice.Visible,"closing a module immediately hides its narration bubble");
                 widget.OpenPanel();panel.Close();Assert(!panel.Visible&&!notice.Visible,"closing the dashboard hides both dashboard and narration");
                 widget.Say("主人，小黑盒登录通道已就绪。");using(var auth=new HeyboxForm(store,settings,null,null,null,panel.DismissPageDialogue)){auth.Opacity=0;auth.Show();auth.Close();}Assert(!notice.Visible,"closing the Heybox login dialog also dismisses its narration");
             }
