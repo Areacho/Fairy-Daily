@@ -52,6 +52,8 @@ namespace MiyouDaily
             Point origin=child.Location;
             for(Control parent=child.Parent;parent!=null;parent=parent.Parent)
             {
+                if(parent is GameTile||parent is HeyboxTile)
+                {using(var brush=new SolidBrush(Tile))g.FillRectangle(brush,child.ClientRectangle);return;}
                 var dialogue=parent as FairyDialogue;
                 if(dialogue!=null){dialogue.PaintBackdrop(g,origin);return;}
                 var backdrop=parent as FairyBackdrop;
@@ -214,16 +216,20 @@ namespace MiyouDaily
     }
     public sealed class ToggleButton : CheckBox
     {
-        public ToggleButton(){AutoSize=false;Appearance=Appearance.Button;SetStyle(ControlStyles.SupportsTransparentBackColor|ControlStyles.UserPaint|ControlStyles.OptimizedDoubleBuffer|ControlStyles.AllPaintingInWmPaint,true);BackColor=Color.Transparent;Cursor=Cursors.Hand;}
+        public ToggleButton(){AutoSize=false;Appearance=Appearance.Button;SetStyle(ControlStyles.SupportsTransparentBackColor|ControlStyles.UserPaint|ControlStyles.OptimizedDoubleBuffer|ControlStyles.AllPaintingInWmPaint|ControlStyles.Opaque|ControlStyles.ResizeRedraw,true);BackColor=Color.Transparent;Cursor=Cursors.Hand;}
         protected override void OnCheckedChanged(EventArgs e){base.OnCheckedChanged(e);Invalidate();}
+        protected override void OnPaintBackground(PaintEventArgs e){}
         protected override void OnPaint(PaintEventArgs e)
         {
-            var g=e.Graphics;g.Clear(Theme.Tile);g.SmoothingMode=SmoothingMode.AntiAlias;float z=DeviceDpi/96f;
-            UiRendering.Text(g,Text,Font,new Rectangle(0,0,Width-(int)(44*z),Height),Enabled?Theme.Text:Theme.Muted,false);
-            var track=new RectangleF(Width-39*z,(Height-21*z)/2,38*z,21*z);
+            var g=e.Graphics;Theme.PaintBehind(this,g);g.SmoothingMode=SmoothingMode.AntiAlias;float z=DeviceDpi/96f;
+            bool row=!(Parent is GameTile)&&!(Parent is HeyboxTile);
+            if(row&&Width>2&&Height>2)Theme.FillRound(g,new RectangleF(.5f,.5f,Width-1,Height-1),8*z,Theme.Tile,Color.Transparent);
+            int pad=row?(int)(10*z):0;
+            UiRendering.Text(g,Text,Font,new Rectangle(pad,0,Math.Max(0,Width-pad*2-(int)(44*z)),Height),Enabled?Theme.Text:Theme.Muted,false);
+            var track=new RectangleF(Width-pad-39*z,(Height-21*z)/2,38*z,21*z);
             Theme.FillRound(g,track,7*z,Checked&&Enabled?Color.FromArgb(32,116,190):Color.FromArgb(24,44,69),Theme.Edge);
             using(var b=new SolidBrush(Checked?Theme.Text:Theme.Muted))g.FillEllipse(b,track.X+(Checked?20:3)*z,track.Y+3*z,15*z,15*z);
-            if(Focused&&ShowFocusCues)ControlPaint.DrawFocusRectangle(g,ClientRectangle,Theme.Cyan,Theme.Surface);
+            if(Focused&&ShowFocusCues&&Width>6&&Height>6)using(var pen=new Pen(Theme.Cyan))using(var path=Theme.Round(new RectangleF(2,2,Width-4,Height-4),6*z))g.DrawPath(pen,path);
         }
     }
     public sealed class FairyPanelButton : Control

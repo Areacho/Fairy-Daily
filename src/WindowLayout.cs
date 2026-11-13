@@ -65,6 +65,13 @@ namespace MiyouDaily
         }
         public static void Watch(Form form,Func<Size> minimumLogical,bool centerOnOpen=false,Func<Control> placementSource=null)
         {
+            WindowInteraction.Attach(form);
+            form.MaximizeBox=false;form.SizeGripStyle=SizeGripStyle.Hide;
+            if(form.FormBorderStyle!=FormBorderStyle.None)
+            {
+                var client=form.ClientSize;form.FormBorderStyle=FormBorderStyle.FixedSingle;
+                form.ClientSize=client;
+            }
             Action fit=()=>{if(!form.IsDisposed){Fit(form,minimumLogical());form.PerformLayout();form.Invalidate(true);}};
             Action queue=()=>{if(form.IsDisposed||!form.IsHandleCreated)return;try{form.BeginInvoke(fit);}catch(InvalidOperationException){}};
             form.Shown+=(s,e)=>fit();form.DpiChanged+=(s,e)=>queue();

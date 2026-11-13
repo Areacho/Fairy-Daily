@@ -118,7 +118,8 @@ namespace MiyouDaily
         readonly Store store; readonly MainForm panel; readonly Timer timer=new Timer();
         readonly Stopwatch clock=Stopwatch.StartNew(); readonly NotifyIcon tray;
         readonly FairyContextMenu menu=new FairyContextMenu(); WidgetPreferences prefs;
-        Point anchor, origin; bool dragging, moved; double frozen; string lastSpeech=""; long nextSpeechPoll;
+        Point anchor, origin; bool dragging, moved,userHidden; double frozen; string lastSpeech=""; long nextSpeechPoll;
+        internal int PresentedFrames{get;private set;}
         readonly GreetingSession greeting=new GreetingSession();
         readonly FairyDialogue dialogue; readonly Timer clickDelay=new Timer();
         FairyModuleForm module;bool showingCompletion;
@@ -154,7 +155,7 @@ namespace MiyouDaily
             foreach(int size in new[]{180,250,330}) {int chosen=size;var item=new FairyMenuItem(SizeLabel(size),"size",(s,e)=>{prefs.Size=chosen;sizes.Hint=SizeLabel(chosen);ResizeForDpi();Save();Render();}){Checked=prefs.Size==size};sizeMenu.Items.Add(item);}
             sizeMenu.Opening+=(s,e)=>{for(int i=0;i<sizeMenu.Items.Count;i++)((FairyMenuItem)sizeMenu.Items[i]).Checked=prefs.Size==new[]{180,250,330}[i];};menu.Items.Add(sizes);
             menu.Items.Add(new FairyMenuSeparator());
-            menu.Items.Add(new FairyMenuItem("收起到托盘","tray",(s,e)=>{CancelAutoExit();Hide();dialogue.HideNow();timer.Interval=750;}));
+            menu.Items.Add(new FairyMenuItem("收起到托盘","tray",(s,e)=>HideToTray()));
             menu.Items.Add(new FairyMenuItem("退出挂件","power",(s,e)=>Close()){Danger=true});
             menu.Opening+=(s,e)=>{e.Cancel=IsClosingEye;CancelAutoExit();run.Enabled=!panel.IsWorking;if(!e.Cancel)BeginMenuInteraction();};
             menu.Closed+=(s,e)=>EndMenuInteraction(e.CloseReason);ContextMenuStrip=menu;
@@ -165,10 +166,11 @@ namespace MiyouDaily
             try{var last=SpeechBus.Read(store);if(last!=null&&!last.IsCompletion&&!last.IsProgress)lastSpeech=last.Id;}catch{}
             clickDelay.Interval=SystemInformation.DoubleClickTime;clickDelay.Tick+=(s,e)=>{clickDelay.Stop();if(dialogue.Visible)dialogue.Dismiss();else{dialogue.OpenShortcuts(greeting.Begin());dialogue.ShowFor(this);}};
             tray=new NotifyIcon{Icon=AppAssets.Icon,Text="Fairy 日签 · 双击显示挂件",Visible=true,ContextMenuStrip=menu};
-            tray.DoubleClick+=(s,e)=>{CancelAutoExit();Show();timer.Interval=prefs.Paused?500:33;timer.Start();Render();};
-            MouseDown+=(s,e)=>{if(IsClosingEye)return;CancelAutoExit();if(e.Button==MouseButtons.Left){clickDelay.Stop();anchor=Cursor.Position;origin=Location;dragging=true;moved=false;Capture=true;}};
+            tray.DoubleClick+=(s,e)=>RestoreFromTray();
+            MouseDown+=(s,e)=>{if(IsClosingEye)return;CancelAutoExit();if(e.Button==MouseButtons.Left){clickDelay.Stop();anchor=Cursor.Position;origin=Location;dragging=true;WindowInteraction.SetMoving(this,true);moved=false;Capture=true;}};
             MouseMove+=(s,e)=>{if(dragging){var p=Cursor.Position;if(Math.Abs(p.X-anchor.X)>SystemInformation.DragSize.Width/2||Math.Abs(p.Y-anchor.Y)>SystemInformation.DragSize.Height/2)moved=true;if(moved)Location=new Point(origin.X+p.X-anchor.X,origin.Y+p.Y-anchor.Y);}};
-            MouseUp+=(s,e)=>{if(dragging){dragging=false;Capture=false;if(moved){Clamp();Save();}else if(e.Button==MouseButtons.Left){clickDelay.Stop();clickDelay.Start();}}};
+            MouseUp+=(s,e)=>{if(dragging){dragging=false;WindowInteraction.SetMoving(this,false);Capture=false;if(moved){Clamp();Save();}else if(e.Button==MouseButtons.Left){clickDelay.Stop();clickDelay.Start();}}};
+            MouseCaptureChanged+=(s,e)=>{if(dragging&&!Capture){dragging=false;WindowInteraction.SetMoving(this,false);}};
             MouseDoubleClick+=(s,e)=>{if(e.Button==MouseButtons.Left){clickDelay.Stop();moved=true;dialogue.OpenShortcuts(greeting.Begin());dialogue.ShowFor(this);}};
             timer.Interval=prefs.Paused?500:33;timer.Tick+=(s,e)=>Render();
             exitTimer.Interval=250;exitTimer.Tick+=(s,e)=>{try{ProcessAutoExit(clock.Elapsed.TotalSeconds,CheckinNotifications.DesktopAvailable());}catch(IOException){CancelAutoExit();}catch(InvalidOperationException){CancelAutoExit();}};
@@ -184,6 +186,8 @@ namespace MiyouDaily
         }
         protected override void OnFormClosing(FormClosingEventArgs e)
         {
+            if(e.CloseReason==CloseReason.UserClosing&&!IsClosingEye)WidgetSession.Close(store);
+            WindowInteraction.SetMoving(this,false);
             if(!allowAnimatedClose&&Visible&&e.CloseReason==CloseReason.UserClosing)
             {
                 e.Cancel=true;
@@ -226,16 +230,18 @@ namespace MiyouDaily
         }
         public void Say(string message)
         {
-            if(IsDisposed||IsClosingEye)return;if(InvokeRequired){BeginInvoke(new Action<string>(Say),message);return;}
+            if(IsDisposed||IsClosingEye||userHidden)return;if(InvokeRequired){BeginInvoke(new Action<string>(Say),message);return;}
             CancelAutoExit();
             if(!Visible){Show();timer.Interval=prefs.Paused?500:33;timer.Start();}dialogue.Say(message);dialogue.ShowFor(this);
         }
-        public void OpenPanel(){if(IsClosingEye)return;CancelAutoExit();if(panel.IsDisposed)return;panel.WindowState=FormWindowState.Normal;WindowLayout.CenterOnScreen(panel,new Size(980,810),this);panel.Show();panel.Activate();panel.Tell("主人，总控制面板已接入。全部委托、账号与运行记录都在这里。");}
+        internal void HideToTray(){userHidden=true;WindowInteraction.SetMoving(this,false);CancelAutoExit();Hide();dialogue.HideNow();timer.Interval=750;}
+        internal void RestoreFromTray(){userHidden=false;CancelAutoExit();Show();timer.Interval=prefs.Paused?500:33;timer.Start();Render();}
+        public void OpenPanel(){if(IsClosingEye)return;userHidden=false;CancelAutoExit();if(panel.IsDisposed)return;panel.WindowState=FormWindowState.Normal;WindowLayout.CenterOnScreen(panel,new Size(980,810),this);panel.Show();panel.Activate();panel.Tell("主人，总控制面板已接入。全部委托、账号与运行记录都在这里。");}
         static string SizeLabel(int size){return size==180?"小号":size==250?"标准":size==330?"大号":"自定义";}
         void CheckinFinished(FairyMessage notice){DeliverCompletion(notice);}
         internal bool DeliverCompletion(FairyMessage notice,bool? desktopAvailable=null)
         {
-            if(IsDisposed||IsClosingEye||showingCompletion||!SpeechBus.IsPending(store,notice,DateTimeOffset.UtcNow)||!(desktopAvailable??CheckinNotifications.DesktopAvailable()))return false;
+            if(IsDisposed||IsClosingEye||userHidden||showingCompletion||!SpeechBus.IsPending(store,notice,DateTimeOffset.UtcNow)||!(desktopAvailable??CheckinNotifications.DesktopAvailable()))return false;
             if(!string.IsNullOrEmpty(notice.RunId)&&notice.RunId==activeProgress&&clock.Elapsed.TotalSeconds-progressShownAt<MinimumProgressSeconds)return false;
             showingCompletion=true;
             try
@@ -251,7 +257,7 @@ namespace MiyouDaily
         }
         internal void PollNotifications(bool? desktopAvailable=null)
         {
-            if(IsClosingEye)return;
+            if(IsClosingEye||userHidden)return;
             var speech=SpeechBus.Read(store);if(speech==null)return;
             if(speech.IsCompletion)
             {
@@ -290,6 +296,7 @@ namespace MiyouDaily
         public void OpenModule(FairySection section)
         {
             if(IsClosingEye)return;
+            userHidden=false;
             CancelAutoExit();
             if(panel.IsWorking){Say("主人，上一项委托还在处理，请稍候。");return;}
             if(module==null||module.IsDisposed){module=new FairyModuleForm(panel,section);module.Show(this);}else{module.WindowState=FormWindowState.Normal;module.Navigate(section,false);module.Show();}
@@ -302,6 +309,7 @@ namespace MiyouDaily
         protected override CreateParams CreateParams{get{var p=base.CreateParams;p.ExStyle|=0x80000;if(!ShowInTaskbar)p.ExStyle|=0x80;return p;}}
         void Render()
         {
+            if(!IsClosingEye&&WindowInteraction.IsMoving)return;
             if(IsDisposed||AdvanceLifecycle(clock.Elapsed.TotalSeconds))return;
             if(!IsClosingEye&&clock.ElapsedMilliseconds>nextSpeechPoll)
             {
@@ -333,6 +341,7 @@ namespace MiyouDaily
         [DllImport("user32.dll")]static extern bool UpdateLayeredWindow(IntPtr hwnd,IntPtr screen,ref Pt pos,ref Sz size,IntPtr dc,ref Pt src,int key,ref Blend blend,int flags);
         void Present(Bitmap bmp,byte alpha)
         {
+            PresentedFrames++;
             IntPtr screen=GetDC(IntPtr.Zero),dc=CreateCompatibleDC(screen),image=IntPtr.Zero,old=IntPtr.Zero;
             try{image=bmp.GetHbitmap(Color.FromArgb(0));old=SelectObject(dc,image);var pos=new Pt(Left,Top);var size=new Sz(Width,Height);var source=new Pt(0,0);var blend=new Blend{Alpha=alpha,Format=1};UpdateLayeredWindow(Handle,screen,ref pos,ref size,dc,ref source,0,ref blend,2);}
             finally{if(old!=IntPtr.Zero)SelectObject(dc,old);if(image!=IntPtr.Zero)DeleteObject(image);DeleteDC(dc);ReleaseDC(IntPtr.Zero,screen);}

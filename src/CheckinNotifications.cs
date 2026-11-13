@@ -36,6 +36,7 @@ namespace MiyouDaily
         {return message!=null&&(message.IsCompletion||message.IsProgress)&&!widgetRunning;}
         public static void EnsureWidget(Store store,FairyMessage message,string executable)
         {
+            if(!WidgetSession.BackgroundAllowed(store))return;
             bool running=false;try{using(var existing=Mutex.OpenExisting(WidgetMutexName))running=true;}catch(WaitHandleCannotBeOpenedException){}
             if(!ShouldStartWidget(message,running))return;
             try{using(var process=Process.Start(new ProcessStartInfo(executable,"--notify"){UseShellExecute=false,CreateNoWindow=true})){} }

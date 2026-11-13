@@ -83,7 +83,7 @@ namespace MiyouDaily
             if(!Visible)Show();
             DialogueLayer.Raise(this);
         }
-        internal void MaintainLayer(){if(mode!=Mode.Closing)DialogueLayer.Maintain(this);}
+        internal void MaintainLayer(){if(mode!=Mode.Closing&&!WindowInteraction.IsMoving)DialogueLayer.Maintain(this);}
         RoundButton Add(string text,Func<System.Threading.Tasks.Task> action,int column,int row)
         {
             var button=new RoundButton{Text=text,Dock=DockStyle.Fill,Margin=new Padding(4),AccessibleName="Fairy快捷"+text};
@@ -140,6 +140,7 @@ namespace MiyouDaily
         }
         void Animate()
         {
+            if(WindowInteraction.IsMoving&&mode!=Mode.Closing)return;
             double ms=clock.Elapsed.TotalMilliseconds;
             if(mode==Mode.Closing){BackgroundOpacity=Math.Max(0,fromOpacity*(1-ms/130));if(ms>=130)Hide();return;}
             if(mode==Mode.Greeting)

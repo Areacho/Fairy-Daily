@@ -82,7 +82,7 @@ partial class Tests
             watch.Stop();root.ControlRemoved-=removed;
             Assert(swaps==5&&completeBeforeSwap,"navigation keeps the old page until the complete replacement is built");
             Assert(module.Visible&&(WindowStyle(module.Handle,-16)&0x10000000)!=0&&module.Controls.Count==1,"atomic page changes restore drawing and retain a single content host");
-            Assert((WindowStyle(module.Handle,-20)&0x02000000)!=0,"native popup controls use buffered painting without individually layered child windows");
+            Assert((WindowStyle(module.Handle,-20)&0x02000000)==0,"popup controls avoid slow whole-tree composition while the cached frame presents them atomically");
             try{using(var redraw=new WindowRedrawBatch(module))throw new InvalidOperationException("test frame cleanup");}catch(InvalidOperationException){}
             Assert((WindowStyle(module.Handle,-16)&0x10000000)!=0,"drawing is restored even when a batched update fails");
             Console.WriteLine("Navigation review: five page replacements in "+watch.ElapsedMilliseconds+" ms at "+module.DeviceDpi+" DPI.");

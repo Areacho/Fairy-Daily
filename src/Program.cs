@@ -42,12 +42,19 @@ namespace MiyouDaily
                         return result.ExitCode;
                     }
                 }
+                // Recheck here as well: a worker may have spawned --notify just
+                // before the user closed the previous instance.
+                if(args.Contains("--notify")&&!WidgetSession.BackgroundAllowed(store))return 0;
                 Application.EnableVisualStyles(); Application.SetCompatibleTextRenderingDefault(false);
                 using(var singleton=new Mutex(false,CheckinNotifications.WidgetMutexName))
                 {
                     bool owns=false;try{owns=singleton.WaitOne(0);}catch(AbandonedMutexException){owns=true;}
                     if(!owns)return 0;
-                    try{var panel=new MainForm(store,settings);var widget=new FairyWidget(store,panel);Application.Run(widget);}
+                    try
+                    {
+                        if(!WidgetSession.BeginLaunch(store,args.Contains("--notify")))return 0;
+                        var panel=new MainForm(store,settings);var widget=new FairyWidget(store,panel);Application.Run(widget);
+                    }
                     finally{singleton.ReleaseMutex();}
                 }
                 return 0;

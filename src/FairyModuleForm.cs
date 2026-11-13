@@ -23,7 +23,6 @@ namespace MiyouDaily
         public FairySection Section {get{return section;}}
         float LayoutScale {get{return IsHandleCreated?DeviceDpi/96f:1f;}}
         protected override void OnHandleCreated(EventArgs e){base.OnHandleCreated(e);Theme.DarkTitlebar(Handle);}
-        protected override CreateParams CreateParams {get{var p=base.CreateParams;p.ExStyle|=0x02000000;return p;}}
         public FairyModuleForm(MainForm panel,FairySection section)
         {
             SuspendLayout();
