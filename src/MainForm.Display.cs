@@ -14,6 +14,7 @@ namespace MiyouDaily
         readonly ComboBox displayLayout=new ThemeComboBox(),edgeQuality=new ThemeComboBox();
         readonly SmoothLabel screenInfo=new SmoothLabel();
         bool applyingDisplay,updatingMetrics,preparingFrame;
+        int appliedDpi;string appliedLayout;Rectangle appliedArea;
         internal int PreparedFrames{get;private set;}
         internal DisplayPreferences DisplayOptions{get{return display;}}
         internal event Action DisplayOptionsChanged;
@@ -35,7 +36,12 @@ namespace MiyouDaily
             card.Controls.Add(fields);root.Controls.Add(card,0,3);
             displayLayout.SelectedIndexChanged+=(s,e)=>SaveDisplayOptions();edgeQuality.SelectedIndexChanged+=(s,e)=>SaveDisplayOptions();
             root.Layout+=(s,e)=>UpdateMainScrollMetrics();
+            ResizeEnd+=(s,e)=>ApplyDisplayLayout(true);
+            EventHandler changed=(s,e)=>QueueDisplayUpdate();Microsoft.Win32.SystemEvents.DisplaySettingsChanged+=changed;
+            Disposed+=(s,e)=>Microsoft.Win32.SystemEvents.DisplaySettingsChanged-=changed;
         }
+        void QueueDisplayUpdate()
+        {if(IsDisposed||!IsHandleCreated)return;BeginInvoke(new Action(()=>{if(!IsDisposed&&!WindowInteraction.IsMoving)ApplyDisplayLayout(true);}));}
         void SaveDisplayOptions()
         {
             if(applyingDisplay||IsDisposed||Disposing||displayLayout.SelectedIndex<0||edgeQuality.SelectedIndex<0)return;
@@ -45,7 +51,10 @@ namespace MiyouDaily
         }
         internal void ApplyDisplayLayout(bool resize)
         {
-            if(applyingDisplay||IsDisposed)return;applyingDisplay=true;var previous=Bounds;
+            if(applyingDisplay||IsDisposed)return;
+            var workArea=Screen.FromControl(this).WorkingArea;
+            if(resize&&appliedDpi==DeviceDpi&&appliedLayout==display.Layout&&appliedArea==workArea){UpdateMainScrollMetrics();return;}
+            applyingDisplay=true;var previous=Bounds;
             SuspendLayout();root.SuspendLayout();projectGrid.SuspendLayout();
             try
             {
@@ -59,6 +68,7 @@ namespace MiyouDaily
                 if(resize){WindowLayout.Fit(this,MinimumLogical);ClientSize=WindowLayout.Pixels(CompactDisplay?new Size(900,760):new Size(1080,900),DeviceDpi);WindowLayout.PreserveCenter(this,previous,MinimumLogical);}
             }
             finally{projectGrid.ResumeLayout(true);root.ResumeLayout(true);ResumeLayout(true);applyingDisplay=false;}
+            appliedDpi=DeviceDpi;appliedLayout=display.Layout;appliedArea=workArea;
             UpdateMainScrollMetrics();
         }
         void UpdateMainScrollMetrics()
@@ -85,7 +95,7 @@ namespace MiyouDaily
             try
             {
                 SetDisplayWindowStyle(window,-20,DisplayWindowStyle(window,-20)|0x02000000);
-                base.SetVisibleCore(true);PerformLayout();
+                base.SetVisibleCore(true);ApplyDisplayLayout(true);PerformLayout();
                 using(var frame=new Bitmap(Math.Max(1,Width),Math.Max(1,Height)))
                 {
                     frame.SetResolution(DeviceDpi,DeviceDpi);int previousDpi=PopupSurface.RenderingDpi;PopupSurface.RenderingDpi=DeviceDpi;

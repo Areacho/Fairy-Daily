@@ -113,7 +113,7 @@ namespace MiyouDaily
             RefreshStatus();
             if (File.Exists(store.LatestLog)){log.Text = File.ReadAllText(store.LatestLog);UiRendering.FormatLog(log,0,log.TextLength);}
             if (log.TextLength == 0) Write("欢迎使用。米游社与小黑盒可在上方分别登录，在每日签到委托中选择项目，确认设定后统一执行。");
-            Shown+=(s,e)=>ApplyDisplayLayout(true);DpiChanged+=(s,e)=>BeginInvoke(new Action(()=>ApplyDisplayLayout(true)));WindowLayout.Watch(this,()=>MinimumLogical,true,()=>PlacementOwner);
+            Shown+=(s,e)=>ApplyDisplayLayout(true);DpiChanged+=(s,e)=>QueueDisplayUpdate();WindowLayout.Watch(this,()=>MinimumLogical,true,()=>PlacementOwner);
             VisibleChanged+=(s,e)=>{if(Visible){updatingStartup=true;try{autoStart.Checked=StartupManager.IsEnabled();}finally{updatingStartup=false;}}};
             FormClosing += (s, e) => {
                 DismissPageDialogue();
