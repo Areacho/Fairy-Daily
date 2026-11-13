@@ -482,6 +482,7 @@ partial class Tests
             if (args.Contains("--main-display-check")) { MainDisplayMatrixChecks();return 0; }
             if (args.Contains("--v111-check")) { Version111Checks();return 0; }
             if (args.Contains("--v112-check")) { Version112Checks();return 0; }
+            if (args.Contains("--v113-check")) { Version113Checks();return 0; }
             if (args.Contains("--v110-check")) { Version110Checks();return 0; }
             if (args.Contains("--window-behavior-check")) { WindowBehaviorChecks();return 0; }
             if (args.Contains("--drag-benchmark")) { DragPerformanceChecks(false);return 0; }
@@ -494,7 +495,7 @@ partial class Tests
             if (args.Contains("--center-check")) { CenteredWindowChecks();return 0; }
             if (args.Contains("--probe-qr")) { ProbeQr().GetAwaiter().GetResult(); return 0; }
             if (args.Contains("--probe-heybox-token")) return ProbeHeyboxToken();
-            Basic(); ApiTests().GetAwaiter().GetResult(); PartialForumRetries().GetAwaiter().GetResult(); PartialRoleRetries().GetAwaiter().GetResult(); CompletionChecks().GetAwaiter().GetResult(); AccountScopeChecks().GetAwaiter().GetResult(); DataLocationChecks(); ScheduledNoticeChecks(); HeyboxChecks().GetAwaiter().GetResult(); CompletionNoticeChecks(); MotionNoticeChecks(); PopupSurfaceChecks(); DragPerformanceChecks(); MainPanelPerformanceChecks(); Version112Checks(); Version111Checks(); Version110Checks(); MainDisplayMatrixChecks(); WindowBehaviorChecks(); InputAlignmentChecks(); InputFocusChecks(); DialogueLayerChecks(); AutoExitChecks(); InterfaceChecks(); HddNavigationChecks(); CenteredWindowChecks(); AnchorMenuChecks(); ContextMenuChecks(); ScrollbarChecks(); HighDpiChecks(); DisplayMatrixChecks(); RenderingChecks(); DigitalClockChecks(); StartupChecks();
+            Basic(); ApiTests().GetAwaiter().GetResult(); PartialForumRetries().GetAwaiter().GetResult(); PartialRoleRetries().GetAwaiter().GetResult(); CompletionChecks().GetAwaiter().GetResult(); AccountScopeChecks().GetAwaiter().GetResult(); DataLocationChecks(); ScheduledNoticeChecks(); HeyboxChecks().GetAwaiter().GetResult(); CompletionNoticeChecks(); MotionNoticeChecks(); PopupSurfaceChecks(); DragPerformanceChecks(); MainPanelPerformanceChecks(); Version113Checks(); Version112Checks(); Version111Checks(); Version110Checks(); MainDisplayMatrixChecks(); WindowBehaviorChecks(); InputAlignmentChecks(); InputFocusChecks(); DialogueLayerChecks(); AutoExitChecks(); InterfaceChecks(); HddNavigationChecks(); CenteredWindowChecks(); AnchorMenuChecks(); ContextMenuChecks(); ScrollbarChecks(); HighDpiChecks(); DisplayMatrixChecks(); RenderingChecks(); DigitalClockChecks(); StartupChecks();
             string smoke = Path.GetFullPath(Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "..", "build", "scheduler-smoke.xml"));
             var xml = XDocument.Parse(Scheduler.MakeXml(Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "MiyouDaily.exe"), System.Security.Principal.WindowsIdentity.GetCurrent().User.Value, "09:00", Clock.ChinaNow));
             foreach (var enabled in xml.Descendants().Where(x => x.Name.LocalName == "Enabled")) enabled.Value = "false";

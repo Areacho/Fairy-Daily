@@ -58,6 +58,7 @@ namespace MiyouDaily
             foreach(int height in new[]{90,146,164,340,60,190})root.RowStyles.Add(new RowStyle(SizeType.Absolute,height));
             Controls.Add(root);
             ScrollbarTheme.Attach(root,true);
+            new PageWheelRouter(this,root);
             var heading = new FairyHeader();
             root.Controls.Add(heading, 0, 0);
 

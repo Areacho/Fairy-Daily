@@ -72,8 +72,17 @@ namespace MiyouDaily
             try
             {
                 var form=owner.FindForm();if(form==null||form.IsDisposed||form.Disposing||owner.Disposing)return;
-                if(overlayHost!=form){if(verticalOverlay!=null)verticalOverlay.Dispose();if(horizontalOverlay!=null)horizontalOverlay.Dispose();overlayHost=form;verticalOverlay=new ScrollbarOverlay(owner,true);horizontalOverlay=new ScrollbarOverlay(owner,false);form.Controls.Add(verticalOverlay);form.Controls.Add(horizontalOverlay);}
-                UpdateOverlay(verticalOverlay,true);UpdateOverlay(horizontalOverlay,false);
+                // Position-only decoration must not run Form.OnLayout while
+                // ScrollWindowEx is still moving the content. ContainerControl
+                // would scroll the old focused control back into view midway
+                // through that move, producing scroll-back and copied ghosts.
+                form.SuspendLayout();
+                try
+                {
+                    if(overlayHost!=form){if(verticalOverlay!=null)verticalOverlay.Dispose();if(horizontalOverlay!=null)horizontalOverlay.Dispose();overlayHost=form;verticalOverlay=new ScrollbarOverlay(owner,true);horizontalOverlay=new ScrollbarOverlay(owner,false);form.Controls.Add(verticalOverlay);form.Controls.Add(horizontalOverlay);}
+                    UpdateOverlay(verticalOverlay,true);UpdateOverlay(horizontalOverlay,false);
+                }
+                finally{form.ResumeLayout(false);}
             }
             finally{synchronizing=false;}
         }

@@ -44,6 +44,7 @@ namespace MiyouDaily
             AutoScaleDimensions=new SizeF(96,96);AutoScaleMode=AutoScaleMode.Dpi;ClientSize=new Size(610,360);MinimizeBox=false;ShowInTaskbar=false;
             root=new FairyBackdrop{Dock=DockStyle.Fill,Padding=new Padding(24,18,24,20),ColumnCount=1,RowCount=4,AutoScroll=true};
             root.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute,562));foreach(int height in new[]{66,110,64,62})root.RowStyles.Add(new RowStyle(SizeType.Absolute,height));Controls.Add(root);ScrollbarTheme.Attach(root,true);
+            new PageWheelRouter(this,root);
             root.SizeChanged+=(s,e)=>UpdateWidths();
             root.Controls.Add(new SmoothLabel{Text="显示设置",Font=AppFonts.Create(20,FontStyle.Bold),ForeColor=Theme.Text,Dock=DockStyle.Fill,TextAlign=ContentAlignment.MiddleLeft},0,0);
             LayoutChoice.AccessibleName="显示布局";

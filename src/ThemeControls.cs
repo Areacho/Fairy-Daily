@@ -92,7 +92,7 @@ namespace MiyouDaily
     }
     public sealed class FairyBackdrop : TableLayoutPanel
     {
-        Bitmap texture;int textureDpi;
+        Bitmap texture;int textureDpi;readonly Point[] flippedCorners=new Point[3];
         internal int BackgroundRasterizations{get;private set;}
         public FairyBackdrop(){DoubleBuffered=true;BackColor=Theme.Background;SetStyle(ControlStyles.ResizeRedraw|ControlStyles.Opaque,true);}
         protected override void OnPaintBackground(PaintEventArgs e)
@@ -108,19 +108,35 @@ namespace MiyouDaily
             if(texture==null||textureDpi!=DeviceDpi||texture.Size!=ClientSize)
             {
                 if(texture!=null)texture.Dispose();textureDpi=DeviceDpi;
-                // Scrollbars occupy non-client pixels: cache the same client
-                // dimensions used by the invalidation comparison above.
                 texture=new Bitmap(ClientSize.Width,ClientSize.Height,System.Drawing.Imaging.PixelFormat.Format32bppPArgb);BackgroundRasterizations++;
-                using(var tile=Graphics.FromImage(texture))
-                {
-                    Theme.HddBackground(tile,ClientRectangle);
-                }
+                using(var tile=Graphics.FromImage(texture))Theme.HddBackground(tile,ClientRectangle);
             }
-            // Transparent children need only their visible slice. Drawing the
-            // whole monitor-sized bitmap on every tiny child DC is expensive,
-            // and DrawImageUnscaled can also involve memory-DC DPI conversion.
+            // Repaint only the requested slice, without recapturing children or
+            // allocating a bitmap as tall as the entire scrollable document.
             var area=Rectangle.Intersect(ClientRectangle,Rectangle.Ceiling(g.VisibleClipBounds));
-            if(area.Width>0&&area.Height>0)g.DrawImage(texture,area,area.X,area.Y,area.Width,area.Height,GraphicsUnit.Pixel);
+            var origin=AutoScrollPosition;
+            // Keep direct pixel copies for the common case. At the viewport
+            // edge, reflect only the small exposed slice rather than running
+            // a texture-brush sampler across every transparent child paint.
+            for(int y=area.Top;y<area.Bottom;)
+            {
+                int worldY=y-origin.Y,row=worldY/texture.Height,localY=worldY%texture.Height,height=Math.Min(area.Bottom-y,texture.Height-localY);bool flipY=(row&1)!=0;
+                for(int x=area.Left;x<area.Right;)
+                {
+                    int worldX=x-origin.X,column=worldX/texture.Width,localX=worldX%texture.Width,width=Math.Min(area.Right-x,texture.Width-localX);bool flipX=(column&1)!=0;
+                    int sourceX=flipX?texture.Width-localX-width:localX,sourceY=flipY?texture.Height-localY-height:localY;
+                    if(!flipX&&!flipY)g.DrawImage(texture,new Rectangle(x,y,width,height),sourceX,sourceY,width,height,GraphicsUnit.Pixel);
+                    else
+                    {
+                        flippedCorners[0]=new Point(flipX?x+width:x,flipY?y+height:y);
+                        flippedCorners[1]=new Point(flipX?x:x+width,flipY?y+height:y);
+                        flippedCorners[2]=new Point(flipX?x+width:x,flipY?y:y+height);
+                        g.DrawImage(texture,flippedCorners,new Rectangle(sourceX,sourceY,width,height),GraphicsUnit.Pixel);
+                    }
+                    x+=width;
+                }
+                y+=height;
+            }
         }
         protected override void Dispose(bool disposing){if(disposing&&texture!=null){texture.Dispose();texture=null;}base.Dispose(disposing);}
         static void Glow(Graphics g,RectangleF rect,Color color)
