@@ -65,7 +65,7 @@ namespace MiyouDaily
             finally{projectGrid.ResumeLayout(true);root.ResumeLayout(true);ResumeLayout(true);applyingDisplay=false;}
             appliedDpi=DeviceDpi;appliedLayout=display.Layout;appliedResolution=display.Resolution;appliedArea=workArea;
             layoutAccounts();
-            UpdateMainScrollMetrics();root.PerformLayout();
+            UpdateMainScrollMetrics();root.AutoScroll=true;root.PerformLayout();
         }
         void UpdateMainScrollMetrics()
         {

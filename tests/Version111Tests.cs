@@ -50,6 +50,7 @@ partial class Tests
             SetTestDpi(panel,120);panel.SaveDisplayOptions(new DisplayPreferences());
             var root=panel.Controls.OfType<FairyBackdrop>().Single();
             Assert((root.ClientSize.Width<root.AutoScrollMinSize.Width||!root.HorizontalScroll.Visible)&&root.AutoScrollPosition.X==0,"resolution and DPI changes discard stale horizontal extents while retaining scrolling on small desktops");
+            panel.ApplyDisplayLayout(false);panel.ApplyDisplayLayout(false);Assert(root.AutoScroll,"reapplying unchanged display metrics always restores scrolling after clearing stale extents");
             using(var frame=new Bitmap(panel.Width,panel.Height)){frame.SetResolution(120,120);panel.DrawToBitmap(frame,new Rectangle(Point.Empty,frame.Size));frame.Save(Path.Combine(DisplayReviewDirectory(),"main-v111.png"));}
             panel.AllowExit=true;panel.Close();
         }

@@ -107,6 +107,7 @@ partial class Tests
                     if(dpi==192||dpi==288)image.Save(Path.Combine(DisplayReviewDirectory(),screen.Width+"x"+screen.Height+"-"+dpi+"-main-"+mode+".png"));
                 }
                 var root=panel.Controls.OfType<FairyBackdrop>().Single();
+                Assert(root.AutoScroll,"virtual main-panel layout retains automatic scrolling at "+dpi+" DPI / "+mode);
                 foreach(var button in FindControls(panel).OfType<RoundButton>())
                 {
                     root.ScrollControlIntoView(button);var exposed=ExposedArea(button);
